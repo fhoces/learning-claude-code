@@ -1,0 +1,8 @@
+{
+  "name": "trip-guard",
+  "version": "0.1.0",
+  "description": "Course example mod: denies edits to the generated trips.csv, shows the last failed command in the status line, toasts when a turn runs long.",
+  "author": {
+    "name": "learning-claude-code"
+  }
+}

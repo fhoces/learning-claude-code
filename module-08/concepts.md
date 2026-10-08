@@ -19,6 +19,29 @@ Reference: the `plugin-authoring` skill bundled with Claude Code (its
 `SKILL.md`, `reference.md` and `examples/`), and the
 [plugins docs](https://code.claude.com/docs/en/plugins).
 
+## Start from the one in this repo
+
+`module-08/trip-guard/` is a complete, tested mod. Run it from any
+repo with:
+
+```bash
+claude --plugin-dir <learning-claude-code>/module-08/trip-guard
+```
+
+It does three things, each one hook:
+
+1. **Denies** any `Edit` or `Write` whose path is `data/trips.csv`, with
+   a message pointing at the generator. Claude reads the message as an
+   error result and changes course.
+2. **Sets the status line** to `failed: <command>` after a Bash call
+   that errored, and clears it after one that succeeded.
+3. **Toasts** when a turn took longer than a minute.
+
+`claude plugin validate module-08/trip-guard` lists exactly those three
+hooks and the two `$` methods they call; `claude plugin test
+module-08/trip-guard` runs its three tests against the engine itself.
+The rest of this file explains what you just ran.
+
 ## What a mod is
 
 A plugin is a folder with a `.claude-plugin/plugin.json` manifest. It
@@ -189,8 +212,8 @@ events, a slash command, or the chain of other plugins.
 
 ## The drill
 
-`exercise.md` builds `trip-guard`: deny edits to `data/trips.csv`
-(the module 7 hook, now in the engine), show the last failed command
-in the status line, and toast when a turn passes 60 seconds. It
-validates, type-checks, tests, and loads it, then reads what the
-engine refuses when a guard is written without `.catch`.
+`exercise.md` runs the shipped `trip-guard` with `--plugin-dir`,
+validates and tests it, reads it hook by hook, breaks the guard to see
+what the engine does with a hook that throws, extends it with a band
+above the prompt through the `plugin-authoring` skill, and dry-runs the
+marketplace file.

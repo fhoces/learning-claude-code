@@ -1,97 +1,95 @@
 # Module 8 drill: mods
 
-In `~/claude-code-practice`, in an interactive session. Needs Node
-with `tsc` for the type-check step (`npm i -g typescript`).
+The course ships a working mod in `module-08/trip-guard/`. The drill
+runs it, reads it, tests it, breaks it, extends it, and dry-runs
+sharing it. Needs Node for the type-check step (`npm i -g typescript`,
+optional).
 
-## Q1. Load the authoring skill and find the types
+## Q1. Run the shipped mod
+
+```bash
+cd ~/claude-code-practice
+claude --plugin-dir <where you cloned learning-claude-code>/module-08/trip-guard
+```
+
+Inside the session, three prompts:
+
+> Change the rating of the first data row in data/trips.csv to 4.
+
+Expected: the edit is refused with the mod's message naming
+`data/build_data.R`. Claude reads the reason and offers to change the
+generator instead.
+
+> Run: ls /nonexistent
+
+Expected: the status line reads `failed: ls /nonexistent`. Then
+`Run: ls data` clears it.
+
+> Run: sleep 65
+
+Expected: a toast at the end of the turn saying how long it took.
+
+## Q2. Check it without running it
+
+```bash
+cd <learning-claude-code>
+claude plugin validate module-08/trip-guard
+claude plugin test module-08/trip-guard
+```
+
+Expected from validate: the hooks it registers
+(`tool.call{tool=Edit|Write}`, `tool.call{tool=Bash}`, `turn.complete`),
+each gate marked "with .catch", and the `$` methods it calls. Expected
+from test: 3 pass, 0 fail. Read `hooks/register.test.ts`: each test
+registers a bottom hook standing in for the engine and calls the tool
+through `$.tool.call`.
+
+## Q3. Read it
+
+Open `hooks/register.ts`. For each of the three `on(...)` calls, write
+one line: the event, the matcher, and which of the three hook shapes it
+is (answers for itself, rewrites, or reacts after `next`). Then find
+the line that makes the guard safe when the hook itself throws.
+
+## Q4. Break the guard and read the refusal
+
+Copy the mod somewhere writable, remove the `.catch` from the Edit/Write
+guard, and make the hook throw (replace `GENERATED.test(e.file_path)`
+with `GENERATED.tst(e.file_path)`). Then:
+
+```bash
+claude plugin validate <copy>        # now: "gating hook without .catch"
+claude plugin test <copy>            # the deny test fails
+claude --plugin-dir <copy>
+```
+
+In the session, repeat Q1's edit. Expected: **the edit goes through**,
+and one dim transcript line names `trip-guard`, `tool.call`, and the
+reason the hook was skipped. That is the whole argument for `.catch` on
+a guard. `claude --debug` shows the same line in full.
+
+## Q5. Extend it with the authoring skill
+
+In a session in the practice repo:
 
 > /plugin-authoring
 
-Expected: the skill names the folder this session's mods go in
-(`~/.claude/dev-mods/<session>/`), the path of this build's
-`types/claude-code.d.ts`, and the examples folder. Then:
+> Copy module-08/trip-guard into this session's mods folder and add a
+> band above the prompt that shows the last turn's duration and tool
+> count, with a Hide button, modeled on the skill's band.tsx example.
+
+When asked "Enable hot reloading for this session?", answer yes.
+Expected: after the turn ends, the band appears under the next turn.
+Read the new `ui.render` hook: it reads an atom, resolves `Box`, `Text`
+and `Button` from `$.ui.resolve(e)`, and never writes state while
+drawing. Run `claude plugin validate` on the mods folder copy; it now
+lists `ui.render{component=AbovePrompt}` and `$.state` keys against the
+contract in `types/index.d.ts`.
+
+## Q6. Share it (dry run)
 
 ```bash
-grep -n "'tool.call'" <path-to>/types/claude-code.d.ts | head
-grep -n "status(" <path-to>/types/claude-code.d.ts | head -3
-```
-
-Expected: the event's declaration and the `$.ui.status` doc comment.
-This is the habit the module is about: grep the types, read the
-declaration.
-
-## Q2. Write the three files
-
-> Make a mod called trip-guard: deny any Edit or Write to
-> data/trips.csv with the message "generated file; edit
-> data/build_data.R", show the last failed Bash command in the status
-> line, and toast when a turn takes longer than 60 seconds.
-
-Expected: three files under the mods folder (`plugin.json`,
-`hooks/hooks.json`, `hooks/register.ts`), modeled on `tool-call.ts`
-and `band.tsx`. Read `register.ts`. Check that the deny hook has a
-`.catch` that refuses when `next` was not called; if it does not, ask
-why.
-
-When the harness asks "Enable hot reloading for this session?",
-answer yes. The mod loads when the turn ends.
-
-## Q3. Validate and type-check
-
-```bash
-claude plugin validate ~/.claude/dev-mods/<session>/trip-guard
-tsc -p ~/.claude/dev-mods/<session>/trip-guard
-```
-
-Expected: validate lists the hooks (`tool.call` on Edit, Write, Bash;
-`turn.complete`; `prompt.submit`), marks the deny hook as a "gating
-hook with .catch", and reports nothing refused. `tsc` is silent.
-
-## Q4. Trigger each behavior
-
-> Change the first row of data/trips.csv.
-
-Expected: denied with the mod's message (the module 7 shell hook, if
-still installed, would also fire; disable it in `.claude/settings.json`
-first to see the mod alone).
-
-> Run a command that fails: ls /nonexistent
-
-Expected: the status line shows `failed: ls /nonexistent`. A
-successful command clears it.
-
-> Run a task that takes over a minute (for example, sleep 70).
-
-Expected: a toast when the turn completes.
-
-## Q5. Write a test
-
-> Add a trip-guard test that calls the Edit hook with file_path
-> data/trips.csv and expects a deny, and one with data/trip_metrics.R
-> that expects next to be called.
-
-```bash
-claude plugin test ~/.claude/dev-mods/<session>/trip-guard
-```
-
-Expected: both pass. Read the test: it imports `test`, `expect`,
-`mock` from `claude-code/testing` and calls the hook through the
-engine's `$.tool.call`.
-
-## Q6. Break the guard and read the refusal
-
-Remove the `.catch` from the deny hook and make the hook throw (a
-typo in the regex method, say). Save; the mod reloads at the end of
-the turn. Repeat the Q4 edit. Expected: **the edit goes through**, and
-one dim transcript line names `trip-guard`, `tool.call`, and the
-reason the hook was skipped. That is the whole argument for `.catch`
-on a guard: a hook that throws is skipped and the chain continues
-without it. Restore it.
-
-## Q7. Share it (dry run)
-
-```bash
-cp -r ~/.claude/dev-mods/<session>/trip-guard ~/trip-guard
+cp -r module-08/trip-guard ~/trip-guard
 cat > ~/trip-guard/.claude-plugin/marketplace.json <<'JSON'
 { "name": "practice-mods", "owner": { "name": "me" },
   "plugins": [{ "name": "trip-guard", "source": "./" }] }
@@ -100,7 +98,6 @@ claude plugin validate ~/trip-guard
 ```
 
 Expected: validate reads the marketplace file, the manifest and the
-module in one run and reports clean. Pushing `~/trip-guard` to a
-repository would let someone install it with
-`/plugin install trip-guard --marketplace you/trip-guard`. Do not
-push; the point is to see the shape.
+module in one run and reports clean. Pushed to a repository, someone
+installs it with `/plugin install trip-guard --marketplace you/trip-guard`.
+Do not push; the point is to see the shape.
