@@ -1,87 +1,87 @@
 # Module 8 drill: mods
 
-The course ships a working mod in `module-08/trip-guard/`. The drill
-runs it, reads it, tests it, breaks it, extends it, and dry-runs
-sharing it. Needs Node for the type-check step (`npm i -g typescript`,
-optional).
+The course ships two mods in `module-08/`: `things-you-should-know` (a
+band above the prompt; the deck's running example) and `trip-guard` (a
+guard that refuses edits). The drill runs the first, reads it, breaks
+it, extends it, then runs the second and dry-runs sharing. Node with
+`tsc` is optional (`npm i -g typescript`).
 
-## Q1. Run the shipped mod
+## Q1. Say what it should do, then run it
+
+Before starting anything, write three lines by hand: what the band
+should show, what it must never do, and what `/know` does. Compare with
+the deck's spec slide. Then:
 
 ```bash
 COURSE=~/path/to/learning-claude-code      # the real folder where you cloned this repo
 cd ~/claude-code-practice
-claude --plugin-dir "$COURSE/module-08/trip-guard"
+claude --plugin-dir "$COURSE/module-08/things-you-should-know" plugin list   # Status: loaded?
+claude --plugin-dir "$COURSE/module-08/things-you-should-know"
 ```
 
-If the path is wrong the session starts without the mod and nothing
-warns you. Check before trusting it: `/plugin` lists the mod on the
-Installed tab, and from the shell
-`claude --plugin-dir "$COURSE/module-08/trip-guard" plugin list` prints
-it as `trip-guard@inline` with `Status: ✔ loaded`. After editing the mod's files, `/reload-plugins`
-in the session.
+In the session, `/plugin` should list it on the Installed tab. Then
+four prompts:
 
-Inside the session, four prompts:
+> Add a comment line at the top of data/trip_metrics.R.
 
-> Change the rating of the first data row in data/trips.csv to 4.
-
-Expected: the edit is refused with the mod's message naming
-`data/build_data.R`. Claude reads the reason and offers to change the
-generator instead.
-
-> Do it with a sed -i command instead.
-
-Expected: refused too, by the Bash half of the guard. The first version
-of this mod only guarded the Edit and Write tools, and the first learner
-to run it got the file changed through Bash. A guard has to cover every
-way the thing can happen.
+Expected: after the turn, a band above the prompt: one file edited
+since the last commit, and the last turn's seconds and tool calls.
 
 > Run: ls /nonexistent
 
-Expected: the status line reads `failed: ls /nonexistent`. Then
+Expected: a third line, `last failed command: ls /nonexistent`. Then
 `Run: ls data` clears it.
 
-> Run: sleep 65
+> Commit the change.
 
-Expected: a toast at the end of the turn saying how long it took.
+Expected: the "files edited" line disappears.
+
+> /know
+
+Expected: the same facts as a transcript line. Press Hide on the band,
+then `/know` again: the band is back.
 
 ## Q2. Check it without running it
 
 ```bash
-cd <learning-claude-code>
-claude plugin validate module-08/trip-guard
-claude plugin test module-08/trip-guard
+cd "$COURSE"
+claude plugin validate module-08/things-you-should-know
+claude plugin test module-08/things-you-should-know
 ```
 
-Expected from validate: the hooks it registers
-(`tool.call{tool=Edit|Write}`, `tool.call{tool=Bash}`, `turn.complete`),
-each gate marked "with .catch", and the `$` methods it calls. Expected
-from test: 3 pass, 0 fail. Read `hooks/register.test.ts`: each test
-registers a bottom hook standing in for the engine and calls the tool
-through `$.tool.call`.
+Expected from validate: the six hooks, the `$` methods it calls, and
+the five state keys it reads and writes, matched against
+`types/index.d.ts`. Expected from test: 3 pass, 0 fail. Read
+`hooks/register.test.ts`: a test cannot read `$.state`, so it watches
+`state.set` writes with a hook of its own.
 
-## Q3. Read it
+## Q3. Read it in three parts
 
-Open `hooks/register.ts`. For each of the three `on(...)` calls, write
-one line: the event, the matcher, and which of the three hook shapes it
-is (answers for itself, rewrites, or reacts after `next`). Then find
-the line that makes the guard safe when the hook itself throws.
+Open `hooks/register.tsx`. Write one line for each `on(...)` call: the
+event, the matcher, and which of the four hook shapes it is (react
+after `next`, pass through, answer for itself, rewrite). Then find:
+the one line that subscribes the band to state changes, and the one
+place state is written from a drawing's handler.
 
-## Q4. Break the guard and read the refusal
+## Q4. Break it the way validate caught it
 
-Copy the mod somewhere writable, remove the `.catch` from the Edit/Write
-guard, and make the hook throw (replace `GENERATED.test(e.file_path)`
-with `GENERATED.tst(e.file_path)`). Then:
+Copy the mod somewhere writable. In `register.tsx`, replace the
+literal plugin name in one `atom(...)` with a variable:
+
+```ts
+const P = 'things-you-should-know'
+const edited = atom({ plugin: P, key: 'edited' } as const, [])
+```
 
 ```bash
-claude plugin validate <copy>        # now: "gating hook without .catch"
-claude plugin test <copy>            # the deny test fails
-claude --plugin-dir <copy>
+claude plugin validate <copy>
 ```
 
-In the session, repeat Q1's edit. Expected: **the edit goes through**,
-and one dim transcript line names `trip-guard`, `tool.call`, and the
-reason the hook was skipped. That is the whole argument for `.catch` on
-a guard. `claude --debug` shows the same line in full.
+Expected: validation fails, naming the compiled line and saying the
+atom's source must be a literal the scan can read. Restore it. Then
+make the render hook write state while drawing (an `update` call before
+the `return`); run the mod and watch the transcript for the dim line
+saying the write was refused.
 
 ## Q5. Extend it with the authoring skill
 
@@ -89,30 +89,46 @@ In a session in the practice repo:
 
 > /plugin-authoring
 
-> Copy module-08/trip-guard into this session's mods folder and add a
-> band above the prompt that shows the last turn's duration and tool
-> count, with a Hide button, modeled on the skill's band.tsx example.
+> Copy module-08/things-you-should-know into this session's mods folder
+> and add a fifth fact to the band: tokens used by the last turn, from
+> e.usage on turn.complete. Add it to the contract, the atom list, the
+> lines() helper, and a test.
 
-When asked "Enable hot reloading for this session?", answer yes.
-Expected: after the turn ends, the band appears under the next turn.
-Read the new `ui.render` hook: it reads an atom, resolves `Box`, `Text`
-and `Button` from `$.ui.resolve(e)`, and never writes state while
-drawing. Run `claude plugin validate` on the mods folder copy; it now
-lists `ui.render{component=AbovePrompt}` and `$.state` keys against the
-contract in `types/index.d.ts`.
+Answer yes to "Enable hot reloading for this session?". Expected: the
+band shows the new line after the next turn; `claude plugin validate`
+lists the new state key; the new test passes. Note what the agent had
+to grep in the types file to find the shape of `e.usage`.
 
-## Q6. Share it (dry run)
+## Q6. The guard variant
 
 ```bash
-cp -r module-08/trip-guard ~/trip-guard
-cat > ~/trip-guard/.claude-plugin/marketplace.json <<'JSON'
+claude --plugin-dir "$COURSE/module-08/trip-guard"
+```
+
+> Change the rating of the first data row in data/trips.csv to 4.
+
+> Do it with a sed -i command instead.
+
+Expected: both refused, with a message pointing at the generator; Claude
+offers to change `data/build_data.R` instead. Then, in a writable copy,
+remove the `.catch` from the Edit/Write guard and make the hook throw
+(`GENERATED.tst(...)`). Repeat the first prompt: the edit goes through,
+and one dim transcript line names `trip-guard`, `tool.call`, and why
+the hook was skipped. That is the argument for `.catch` on a guard.
+
+## Q7. Share it (dry run)
+
+```bash
+cp -r module-08/things-you-should-know ~/things-you-should-know
+cat > ~/things-you-should-know/.claude-plugin/marketplace.json <<'JSON'
 { "name": "practice-mods", "owner": { "name": "me" },
-  "plugins": [{ "name": "trip-guard", "source": "./" }] }
+  "plugins": [{ "name": "things-you-should-know", "source": "./" }] }
 JSON
-claude plugin validate ~/trip-guard
+claude plugin validate ~/things-you-should-know
 ```
 
 Expected: validate reads the marketplace file, the manifest and the
 module in one run and reports clean. Pushed to a repository, someone
-installs it with `/plugin install trip-guard --marketplace you/trip-guard`.
-Do not push; the point is to see the shape.
+installs it with
+`/plugin install things-you-should-know --marketplace you/repo`. Do not
+push; the point is to see the shape.

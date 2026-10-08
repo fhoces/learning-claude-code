@@ -1,0 +1,7 @@
+{
+  "name": "things-you-should-know",
+  "version": "0.1.0",
+  "description": "Course example mod: a band above the prompt with the session facts you tend to forget (files edited since the last commit, last turn's cost, last failed command, an oversized CLAUDE.md), plus /know to print them.",
+  "author": { "name": "learning-claude-code" },
+  "types": "./types/index.d.ts"
+}
