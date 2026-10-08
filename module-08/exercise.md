@@ -33,7 +33,7 @@ these prompts, one at a time:
 > Run: ls data/missing.csv
 
 Expected: after the third, a band above the prompt with three lines:
-`2 files edited since the last commit: trip_metrics.R, README.md`, the
+`2 files changed since the last commit: trip_metrics.R, README.md`, the
 last turn's seconds and tool calls, and
 `last failed command: ls data/missing.csv`.
 
@@ -49,6 +49,18 @@ Expected: the "last failed command" line disappears.
 
 Expected: the remaining facts as a transcript line. Press Hide on the
 band, then `/know` again: the band is back.
+
+## Q1b. Add it to a session already running
+
+`--plugin-dir` only works at startup. In a session that is already
+open, with your path from Q1:
+
+> /plugin install things-you-should-know --marketplace /Users/you/Desktop/courses/learning-claude-code
+
+Confirm adding the marketplace, choose **Install for you, in this repo
+only**, and read the last line of the summary (`Plugin is now active.`).
+This install is saved in your settings, unlike `--plugin-dir`. Remove it
+with `/plugin uninstall things-you-should-know@learning-claude-code`.
 
 ## Q2. Check it without running it
 
@@ -79,7 +91,7 @@ literal plugin name in one `atom(...)` with a variable:
 
 ```ts
 const P = 'things-you-should-know'
-const edited = atom({ plugin: P, key: 'edited' } as const, [])
+const changed = atom({ plugin: P, key: 'changed' } as const, [])
 ```
 
 ```bash

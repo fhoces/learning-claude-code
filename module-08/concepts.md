@@ -25,8 +25,8 @@ Reference: the `plugin-authoring` skill bundled with Claude Code (its
 stated before its code:
 
 - Show, above the prompt, the session facts you tend to forget, at most
-  four lines: files edited since the last commit (with the last three
-  names), what the last turn cost in seconds and tool calls, the last
+  four lines: files changed since the last commit (asked of git, so an
+  edit made any way counts, with up to three names), what the last turn cost in seconds and tool calls, the last
   command that failed, and a `CLAUDE.md` over 200 lines.
 - Never block anything and never write to the project. A `Hide` button;
   `/know` prints the same facts as text and brings the band back.

@@ -96,7 +96,7 @@ We will demonstrate with one specific mod, **things-you-should-know**, shipped i
 
 **Show, above the prompt, the session facts you tend to forget.** At most four lines:
 
-- files edited since the last commit, with the last three names (module 1: read the diff before "done")
+- files changed since the last commit, asked of git so an edit made any way counts (module 1: read the diff before "done")
 - what the last turn cost: seconds and tool calls (module 4)
 - the last command that failed (module 3: a check that lied is often a command that failed quietly)
 - a `CLAUDE.md` over 200 lines (module 2: the budget)
@@ -160,7 +160,7 @@ Run: ls data/missing.csv
 After the third, the band above the prompt reads:
 
 ```
-  2 files edited since the last commit: trip_metrics.R, README.md
+  2 files changed since the last commit: trip_metrics.R, README.md
   last turn: 4 s, 1 tool call
   last failed command: ls data/missing.csv
   [ Hide (/know brings it back) ]
@@ -174,38 +174,29 @@ After the third, the band above the prompt reads:
 Then two more: `Commit both files.` removes the first line, and `Run: ls data` removes the third. `/know` prints whatever is left as text. The three lines above are what `/know` printed in a real run of exactly these prompts; your seconds will differ.
 
 ---
-name: check-it
+name: install-running
 
-# Check It Without Running It
+# Add It to a Session Already Running
 
-```
-$ claude plugin validate module-08/things-you-should-know
-  ❯ types ./types/index.d.ts declares state: things-you-should-know.edited, .lastTurn,
-    .lastFailed, .claudeMdLines, .isHidden
-  ❯ ./register.tsx hooks: session.start, command.run{command=know}, prompt.submit,
-    tool.call, turn.complete, ui.render{component=AbovePrompt}
-  ❯ ./register.tsx answers its own command: command.run{command=know}
-  ❯ ./register.tsx calls: $.command.register, $.fs.exists, $.fs.read, $.state.get,
-    $.state.set, $.ui.resolve
-  ❯ ./register.tsx state writes: ...edited, ...isHidden, ...lastFailed, ...lastTurn, ...claudeMdLines
-✔ Validation passed
-```
+`--plugin-dir` only works when you start Claude Code. In a session that is already open, install the mod instead: this repo is also a **marketplace**, a catalog of plugins (its `.claude-plugin/marketplace.json` lists both course mods).
 
 --
 
+**1. In the running session, type** this, with your path from slide 4's step 1:
+
 ```
-$ claude plugin test module-08/things-you-should-know
-(pass) counts files edited since the last commit, once each, and resets on git commit
-(pass) also resets on git -C &lt;dir&gt; commit and on add &amp;&amp; commit
-(pass) does not reset on git commands that are not commits
-(pass) remembers the last failed command and forgets it after a success
-(pass) /know prints the facts as text
- 5 pass   0 fail
+/plugin install things-you-should-know --marketplace /Users/you/Desktop/courses/learning-claude-code
 ```
+
+**2. Confirm adding the marketplace** when asked. It shows the folder it found.
+
+**3. Pick a scope:** choose **Install for you, in this repo only**. The mod then loads in this project's sessions and nowhere else.
 
 --
 
-**validate** reads the module the way the engine will: which events it hooks, which `$` methods it calls, and which state keys it reads and writes, checked against the contract. **test** runs the `*.test.ts` files against the engine itself, no session and no model.
+**4. Read the last line of the summary.** `Plugin is now active.` means the band appears after your next turn, with no restart. If it says `Run /reload-plugins to apply.`, Claude Code runs that reload for you.
+
+Unlike `--plugin-dir`, this lasts: the install is saved in your settings. To remove it, type `/plugin uninstall things-you-should-know@learning-claude-code`.
 
 ---
 name: part-1
@@ -220,7 +211,7 @@ export type Turn = { seconds: number; tools: number }
 declare module 'claude-code' {
   interface PluginState {
     'things-you-should-know': {
-      edited: string[]; lastTurn: Turn | null; lastFailed: string | null
+      changed: string[]; lastTurn: Turn | null; lastFailed: string | null
       claudeMdLines: number | null; isHidden: boolean
     }
   }
@@ -230,7 +221,7 @@ declare module 'claude-code' {
 `hooks/register.tsx`, the atoms: one typed handle per value. `plugin` and `key` must be string literals, so `claude plugin validate` can list them.
 
 ```tsx
-const edited = atom({ plugin: 'things-you-should-know', key: 'edited' } as const, [])
+const changed = atom({ plugin: 'things-you-should-know', key: 'changed' } as const, [])
 const lastTurn = atom({ plugin: 'things-you-should-know', key: 'lastTurn' } as const, null)
 const lastFailed = atom({ plugin: 'things-you-should-know', key: 'lastFailed' } as const, null)
 const claudeMdLines = atom({ plugin: 'things-you-should-know', key: 'claudeMdLines' } as const, null)
@@ -249,35 +240,34 @@ name: part-2
 
 .small[
 ```tsx
-on('session.start', async ($, e, next) =&gt; {
-  await $.command.register({ name: 'know', description: 'Things you should know about this session' })
+// Ask git what changed. This counts an edit made any way: the Edit tool, a script run through Bash, your editor.
+async function refreshChanged($: EngineInterface) {
+  let files: string[] = []
   try {
-    if (await $.fs.exists('CLAUDE.md')) {
-      const file = await $.fs.read('CLAUDE.md')
-      const text = typeof file === 'string' ? file : ''
-      await update($, claudeMdLines, () =&gt; text.trimEnd().split('\n').length)
-    }
-  } catch { /* a surface without file access: the band simply omits the line */ }
+    const { exitCode, stdout } = await $.process.run(['git', 'status', '--porcelain'])
+    if (exitCode === 0) files = stdout.split('\n').filter(l =&gt; l.length &gt; 3).map(l =&gt; l.slice(3).split(' -&gt; ').pop() ?? '')
+  } catch { /* not a repo, or git failed: leave the line out */ }
+  await update($, changed, () =&gt; files)
+}
+
+on('session.start', async ($, e, next) =&gt; {
+  await $.command.register({ name: 'know', description: 'Things you should know' })  // and count CLAUDE.md lines
+  await refreshChanged($)
   return next(e)
 })
-
 on('prompt.submit', ($, e, next) =&gt; { tools = 0; return next(e) })
-
 on('tool.call', async ($, e, next) =&gt; {
   tools += 1
-  const ran = await next(e)                                        // let the tool run
-  const ok = ran.deny === undefined &amp;&amp; ran.isError !== true
-  if ((e.tool === 'Edit' || e.tool === 'Write') &amp;&amp; ok)
-    await update($, edited, list =&gt; (list.includes(e.file_path) ? list : [...list, e.file_path]))
+  const ran = await next(e)                                              // let the tool run
   if (e.tool === 'Bash') {
-    if (ok &amp;&amp; COMMIT.test(e.command)) await update($, edited, () =&gt; [])   // git commit, git -C dir commit, ...
+    const ok = ran.deny === undefined &amp;&amp; ran.isError !== true
     await update($, lastFailed, () =&gt; (ok ? null : e.command.slice(0, 60)))
   }
   return ran
 })
-
 on('turn.complete', async ($, e, next) =&gt; {
   await update($, lastTurn, () =&gt; ({ seconds: Math.round(e.durationMs / 1000), tools }))
+  await refreshChanged($)
   return next(e)
 })
 ```
@@ -285,7 +275,7 @@ on('turn.complete', async ($, e, next) =&gt; {
 
 --
 
-Every hook here **reacts after the fact** or **passes through**. None refuses anything: that is the spec.
+No hook here refuses anything, as the spec says. A first version counted Edit and Write calls; in auto mode Claude edits through Bash, so asking git is what counts every edit.
 
 ---
 name: part-3
@@ -296,7 +286,7 @@ name: part-3
 ```tsx
 on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) =&gt; {
   if (e.props.hasSurvey || (await read($, isHidden))) return next(e)       // draw nothing
-  const text = lines(await read($, edited), await read($, lastTurn),
+  const text = lines(await read($, changed), await read($, lastTurn),
                      await read($, lastFailed), await read($, claudeMdLines))
   if (text.length === 0) return next(e)
   const { Box, Text, Button } = $.ui.resolve(e)                             // this surface's elements
@@ -310,7 +300,7 @@ on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) =&gt; {
 
 on('command.run', { command: 'know' }, async $ =&gt; {
   await update($, isHidden, () =&gt; false)
-  const text = lines(await read($, edited), await read($, lastTurn),
+  const text = lines(await read($, changed), await read($, lastTurn),
                      await read($, lastFailed), await read($, claudeMdLines))
   return { text: text.length ? text.join('\n') : 'Nothing to report yet.' }
 })
@@ -452,7 +442,7 @@ name: loop
 
 # Writing Your Own: The Authoring Loop
 
-**1. Load the skill.** `/plugin-authoring`. It names the session's mods folder and writes this build's `types/claude-code.d.ts`, about 21,000 lines: the whole API. Grep it for the name at hand and read the declaration it lands on. (This mod was written by grepping `'tool.call'`, `durationMs`, `fs: {` and `AbovePrompt`.)
+**1. Load the skill.** `/plugin-authoring`. It names the session's mods folder and writes this build's `types/claude-code.d.ts`, about 21,000 lines: the whole API. Grep it for the name at hand and read the declaration it lands on. (This mod was written by grepping `'tool.call'`, `durationMs`, `process: {` and `AbovePrompt`.)
 
 --
 
@@ -460,7 +450,7 @@ name: loop
 
 --
 
-**3. Validate.** `claude plugin validate &lt;folder&gt;`, as on the check-it slide. It refused this mod twice on the way: an atom whose `plugin` was a variable, and a helper that took `$` as an argument. Both messages said exactly what to change.
+**3. Validate.** `claude plugin validate &lt;folder&gt;` reads the module the way the engine will and lists its hooks, calls and state keys. It refused this mod twice on the way: an atom whose `plugin` was a variable, and a helper that took `$` as an argument. Both messages said exactly what to change.
 
 **4. Test.** `claude plugin test &lt;folder&gt;`: `*.test.ts` against the engine, mocked clock, mounted surface. A test cannot read `$.state` directly; it watches `state.set` writes instead.
 

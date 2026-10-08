@@ -1,0 +1,11 @@
+{
+  "name": "learning-claude-code",
+  "owner": { "name": "learning-claude-code" },
+  "description": "The example mods from the Learning Claude Code course.",
+  "plugins": [
+    { "name": "things-you-should-know", "source": "./module-08/things-you-should-know",
+      "description": "A band above the prompt with the session facts you tend to forget, and /know." },
+    { "name": "trip-guard", "source": "./module-08/trip-guard",
+      "description": "Refuses edits to the generated data/trips.csv, through the file tools and through Bash." }
+  ]
+}

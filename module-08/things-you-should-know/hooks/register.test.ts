@@ -3,64 +3,47 @@ import type { On } from 'claude-code'
 
 const bashOk = { result: { stdout: '', stderr: '', interrupted: false }, text: '', isError: false }
 const bashFail = { result: { stdout: '', stderr: 'No such file', interrupted: false }, text: 'No such file', isError: true }
-const editOk = (file_path: string) => ({
-  result: { filePath: file_path, oldString: 'a', newString: 'b', originalFile: null, structuredPatch: [], userModified: false, replaceAll: false },
-  text: 'edited', isError: false,
-})
+const know = { command: 'know', args: '', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 80 } } as const
 
-// The test cannot read $.state directly; it watches the writes instead.
-function watchState(on: On) {
-  const seen: Record<string, unknown> = {}
-  on('state.set', ($, e, next) => { seen[e.key] = e.value; return next(e) })
-  return seen
+// Stand in for git: answer `git status --porcelain` with whatever the test says.
+function fakeGit(on: On, status: { stdout: string; exitCode?: number }) {
+  on('process.run', () => ({
+    value: {
+      exitCode: status.exitCode ?? 0, stdout: status.stdout, stderr: '',
+      isStdoutTruncated: false, isStderrTruncated: false,
+    },
+  }))
 }
 
-test('counts files edited since the last commit, once each, and resets on git commit', async ($, on) => {
-  const seen = watchState(on)
-  on('tool.call', ($, e) => (e.tool === 'Bash' ? bashOk : editOk(String((e as { file_path?: string }).file_path))))
-  await $.tool.call({ tool: 'Edit', file_path: '/r/data/trip_metrics.R', old_string: 'a', new_string: 'b' })
-  await $.tool.call({ tool: 'Edit', file_path: '/r/data/trip_metrics.R', old_string: 'b', new_string: 'c' })
-  await $.tool.call({ tool: 'Write', file_path: '/r/README.md', content: 'x' })
-  expect(seen.edited).toEqual(['/r/data/trip_metrics.R', '/r/README.md'])
-  await $.tool.call({ tool: 'Bash', command: 'git commit -m "done"' })
-  expect(seen.edited).toEqual([])
+test('reports every file git says changed, however it was changed', async ($, on) => {
+  fakeGit(on, { stdout: ' M data/trip_metrics.R\n?? README.md\n' })
+  const { text } = await $.command.run(know)
+  expect(text).toContain('2 files changed since the last commit: trip_metrics.R, README.md')
 })
 
-test('also resets on git -C <dir> commit and on add && commit', async ($, on) => {
-  const seen = watchState(on)
-  on('tool.call', ($, e) => (e.tool === 'Bash' ? bashOk : editOk(String((e as { file_path?: string }).file_path))))
-  await $.tool.call({ tool: 'Write', file_path: '/r/README.md', content: 'x' })
-  await $.tool.call({ tool: 'Bash', command: "git -C /r commit -F - <<'EOF'\nmsg\nEOF" })
-  expect(seen.edited).toEqual([])
-  await $.tool.call({ tool: 'Write', file_path: '/r/README.md', content: 'y' })
-  await $.tool.call({ tool: 'Bash', command: 'git add README.md && git commit -m "x"' })
-  expect(seen.edited).toEqual([])
+test('says nothing about files when git reports a clean tree (after a commit)', async ($, on) => {
+  fakeGit(on, { stdout: '' })
+  const { text } = await $.command.run(know)
+  expect(text).toBe('Nothing to report yet.')
 })
 
-test('does not reset on git commands that are not commits', async ($, on) => {
-  const seen = watchState(on)
-  on('tool.call', ($, e) => (e.tool === 'Bash' ? bashOk : editOk(String((e as { file_path?: string }).file_path))))
-  await $.tool.call({ tool: 'Write', file_path: '/r/README.md', content: 'x' })
-  await $.tool.call({ tool: 'Bash', command: 'git log --oneline -3' })
-  await $.tool.call({ tool: 'Bash', command: 'git status --short | grep commit' })
-  await $.tool.call({ tool: 'Bash', command: 'git commit-tree abc123 -m x' })
-  expect(seen.edited).toEqual(['/r/README.md'])
+test('says nothing about files outside a git repository', async ($, on) => {
+  fakeGit(on, { stdout: '', exitCode: 128 })
+  const { text } = await $.command.run(know)
+  expect(text).toBe('Nothing to report yet.')
+})
+
+test('reads the new name of a renamed file', async ($, on) => {
+  fakeGit(on, { stdout: 'R  old.R -> data/new_name.R\n' })
+  const { text } = await $.command.run(know)
+  expect(text).toContain('1 file changed since the last commit: new_name.R')
 })
 
 test('remembers the last failed command and forgets it after a success', async ($, on) => {
-  const seen = watchState(on)
-  on('tool.call', ($, e) => ((e as { command?: string }).command?.includes('nonexistent') ? bashFail : bashOk))
-  await $.tool.call({ tool: 'Bash', command: 'ls /nonexistent' })
-  expect(seen.lastFailed).toBe('ls /nonexistent')
+  fakeGit(on, { stdout: '' })
+  on('tool.call', ($, e) => ((e as { command?: string }).command?.includes('missing') ? bashFail : bashOk))
+  await $.tool.call({ tool: 'Bash', command: 'ls data/missing.csv' })
+  expect((await $.command.run(know)).text).toContain('last failed command: ls data/missing.csv')
   await $.tool.call({ tool: 'Bash', command: 'ls data' })
-  expect(seen.lastFailed).toBeNull()
-})
-
-test('/know prints the facts as text', async ($, on) => {
-  on('tool.call', () => bashFail)
-  await $.tool.call({ tool: 'Bash', command: 'ls /nonexistent' })
-  const { text } = await $.command.run({
-    command: 'know', args: '', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 80 },
-  })
-  expect(text).toContain('last failed command: ls /nonexistent')
+  expect((await $.command.run(know)).text).toBe('Nothing to report yet.')
 })
