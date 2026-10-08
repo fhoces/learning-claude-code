@@ -137,7 +137,13 @@ claude --plugin-dir "$COURSE/module-08/things-you-should-know"
 
 --
 
-**3. Confirm it loaded.** `/plugin` lists it on the **Installed** tab; from the shell, `claude --plugin-dir "$COURSE/module-08/things-you-should-know" plugin list` prints it as `things-you-should-know@inline` with `Status: ✔ loaded`. After editing its files, `/reload-plugins`.
+**3. Check that it loaded.** Inside the session, type:
+
+```
+/plugin
+```
+
+Look for `things-you-should-know` on the **Installed** tab. If it is not there, the path in step 2 was wrong: `/exit` and start again with the right path. A wrong path gives no error, so this check is the only way to know.
 
 ---
 name: what-you-see
@@ -452,7 +458,7 @@ name: loop
 
 --
 
-**2. Write the files.** The first write makes the engine ask once: *Enable hot reloading for this session?* On yes, the mod loads when the turn ends and reloads on every later save. A reload is a fresh `register`; `$.state` and `$.store` survive, module variables do not.
+**2. Write the files.** The first write makes the engine ask once: *Enable hot reloading for this session?* On yes, the mod loads when the turn ends and reloads on every later save. A reload is a fresh `register`; `$.state` and `$.store` survive, module variables do not. For a mod loaded with `--plugin-dir`, run `/reload-plugins` after editing its files.
 
 --
 
