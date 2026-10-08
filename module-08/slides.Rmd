@@ -1,0 +1,330 @@
+---
+title: "Module 8: Mods"
+subtitle: "Function hooks in TypeScript: panes, bands, status, toasts, guards"
+output:
+  xaringan::moon_reader:
+    css: [default, default-fonts]
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: "16:9"
+---
+
+```{css, echo=FALSE}
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small .remark-code, .small table { font-size: 70%; }
+.small { font-size: 80%; }
+.nav-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 40px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn:hover { background: #c5cae9; }
+.nav-btn-br {
+  position: absolute;
+  bottom: 12px;
+  right: 70px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn-br:hover { background: #c5cae9; }
+.inline-btn {
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-decoration: none;
+  color: #1a237e;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.inline-btn:hover { background: #c5cae9; }
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, fig.align = "center",
+  fig.width = 10, fig.height = 4.5, dpi = 150,
+  message = FALSE, warning = FALSE
+)
+library(tidyverse)
+theme_set(theme_minimal(base_size = 14))
+```
+
+# Course Map
+
+<table>
+<tr><th>#</th><th>Module</th><th>Status</th></tr>
+<tr><td>1</td><td><a href="../module-01/slides.html">Version control as the safety net</a></td><td>✓ done</td></tr>
+<tr><td>2</td><td><a href="../module-02/slides.html">Markdown as the interface</a></td><td>✓ done</td></tr>
+<tr><td>3</td><td><a href="../module-03/slides.html">Verification plans</a></td><td>✓ done</td></tr>
+<tr><td>4</td><td><a href="../module-04/slides.html">Token management</a></td><td>✓ done</td></tr>
+<tr><td>5</td><td><a href="../module-05/slides.html">Global and local memory</a></td><td>✓ done</td></tr>
+<tr><td>6</td><td><a href="../module-06/slides.html">Skills</a></td><td>✓ done</td></tr>
+<tr><td>7</td><td><a href="../module-07/slides.html">Hooks</a></td><td>✓ done</td></tr>
+<tr><td><b>8</b></td><td><b>Mods</b> <i>(you are here)</i></td><td>← current</td></tr>
+</table>
+
+---
+name: ladder
+
+# The Last Row of the Ladder
+
+| Layer | Form | Runs | Can draw UI |
+|---|---|---|---|
+| memory (5) | Markdown, loaded as context | the model decides | no |
+| skill (6) | Markdown + scripts, on demand | the model decides to invoke | no |
+| hook (7) | shell command in `settings.json` | the harness, at an event | no |
+| **mod (8)** | **TypeScript function hooks in a plugin** | **the engine, at an event, with `$`** | **yes** |
+
+--
+
+A hook is enough when the answer is "block, rewrite, or run a command."
+
+A mod is the tool when the answer involves **the screen**, **state across events**, **a slash command**, or **the chain of other plugins**.
+
+--
+
+The API is early access and moves between releases. The generated types file is the authority; this deck is the map.
+
+---
+name: three-files
+
+# Three Files
+
+```
+trip-guard/
+├── .claude-plugin/plugin.json   {"name":"trip-guard","version":"0.1.0","description":"..."}
+├── hooks/hooks.json             {"modules":["./register.ts"]}
+└── hooks/register.ts            export const register: Register = (on, options) => { ... }
+```
+
+--
+
+A plugin is a folder with a manifest. It can carry skills, command hooks in the module 7 shape, and a **hooks module**: one `.ts`/`.tsx` file exporting `register`. A mod is a plugin whose substance is that module.
+
+--
+
+The module runs in an environment of its own: **no DOM, no Node**. Everything outside it is reached through `$`.
+
+A mod that keeps values in `$.state` adds a fourth file, `types/index.d.ts`, its state contract.
+
+---
+name: signature
+
+# One Signature for Every Hook
+
+```ts
+on(event, matcher?, hook)
+hook = ($, e, next) => result
+```
+
+--
+
+- **`$`** is the engine, noun then method: `$.ui.toast`, `$.ui.status`, `$.clock.now`, `$.state.get`, `$.command.register`, `$.tool.call`, `$.fs`, `$.process.spawn`.
+- **`e`** is the event's input, frozen. For `tool.call` it narrows by tool: `e.tool === 'Edit'` gives `e.file_path`.
+- **`next(e)`** runs the plugins beneath and then the engine, and resolves to the result.
+
+--
+
+Three shapes of hook, from that one signature:
+
+```ts
+return { deny: 'why' }                                   // answer for itself: never calls next
+return next({ ...e, command: e.command.trim() })         // rewrite what the rest sees
+const ran = await next(e); $.ui.status(...); return ran  // react after the fact
+```
+
+---
+name: example-guard
+
+# Example 1: A Guard With a Status Line
+
+```ts
+import type { Register } from 'claude-code'
+const PROTECTED = /(^|\/)\.env(\.|$)/
+
+export const register: Register = on => {
+  on('tool.call', { tool: 'Edit' }, ($, e, next) =>
+    PROTECTED.test(e.file_path)
+      ? { deny: `${$.plugin.name}: ${e.file_path} is protected here.` }
+      : next(e),
+  ).catch(($, e, next) =>
+    next.called ? next(e) : { deny: `${$.plugin.name}: its guard failed.` },
+  )
+
+  on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
+    const ran = await next({ ...e, command: e.command.trim() })
+    const hasFailed = ran.deny === undefined && ran.isError === true
+    $.ui.status(hasFailed ? `failed: ${e.command.slice(0, 40)}` : undefined)
+    return ran
+  })
+}
+```
+
+<a href="#catch-why" class="nav-btn">why the .catch matters →</a>
+
+---
+name: example-band
+
+# Example 2: A Band Above the Prompt
+
+```tsx
+const last = atom({ plugin: 'turn-band', key: 'last' } as const, null)
+
+on('prompt.submit', async ($, e, next) => { startedAt = await $.clock.now(); tools = 0; return next(e) })
+on('tool.call', ($, e, next) => { tools += 1; return next(e) })
+on('turn.complete', async ($, e, next) => {
+  const seconds = Math.round(((await $.clock.now()) - startedAt) / 1000)
+  await update($, last, () => ({ seconds, tools }))
+  if (seconds > 120) $.ui.toast(`That turn took ${seconds}s`)
+  return next(e)
+})
+on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+  const turn = await read($, last)
+  if (turn === null) return next(e)
+  const { Box, Text, Button } = $.ui.resolve(e)
+  return <Box><Text dimColor>Last turn: {turn.seconds}s, {turn.tools} tool calls </Text>
+              <Button key="hide" label="Hide" onPress={() => update($, isHidden, () => true)} /></Box>
+})
+```
+
+--
+
+Four events cooperate: time the turn, count the tools, store the result, draw it. Elements come from `$.ui.resolve(e)` for whatever surface is drawing (`terminal`, `desktop`, `vscode`, `mobile`).
+
+---
+name: catalogue
+
+# The Catalogue
+
+.small[
+| You want | It is |
+|---|---|
+| a pane, sidebar, live view | `$.ui.open({ id, title })` + `ui.render` on `{ component: 'Pane', requestId: id }` |
+| a band above the prompt | `ui.render` on `{ component: 'AbovePrompt' }` returning a tree, or `next(e)` for nothing |
+| a status line entry | `$.ui.status(text)` from any hook; `undefined` clears |
+| a toast | `$.ui.toast(text)` |
+| block, rewrite or react to a tool call | `on('tool.call', { tool }, hook)` |
+| change or react to a prompt | `on('prompt.submit', hook)` → `next({ ...e, text })` |
+| change the system prompt | `on('prompt.compose', hook)`: add, replace or drop a section |
+| a slash command | `$.command.register({ name, description })` in `session.start`; `command.run` returns `{ text }` |
+| values a drawing reads | `atom`, `read($, atom)` while drawing, `update($, atom, fn)` from a handler |
+| timers, tools the model calls, subagents, files, processes | `$.clock`, `$.tool`, `$.agent`, `$.fs`, `$.process` |
+| the module 7 events, same stdin shape | `on('classic.Stop', ...)`, `classic.SessionEnd` |
+]
+
+--
+
+Module variables reset on every reload. Anything a drawing reads lives in `$.state` (session) or `$.store` (across sessions), declared in the contract; a render hook reads, a handler writes, never the reverse.
+
+---
+name: loop
+
+# The Authoring Loop
+
+**1. Load the skill.** `/plugin-authoring`. It names the session's mods folder and writes this build's `types/claude-code.d.ts`, about 14,000 lines: the whole API. Grep it for the name at hand and read the declaration it lands on.
+
+--
+
+**2. Write the three files.** The first write makes the engine ask once: *Enable hot reloading for this session?* On yes, the mod loads when the turn ends and reloads on every later save. A reload is a fresh `register`; `$.state` and `$.store` survive, module variables do not.
+
+--
+
+**3. Validate.** `claude plugin validate <folder>`: what it hooks, what it calls, which hooks are gates and whether they have a `.catch`, everything the engine would refuse.
+
+--
+
+**4. Type-check.** `tsc -p <folder>` against the types laid in `.claude-plugin/types/`.
+
+**5. Test.** `claude plugin test <folder>` runs `*.test.ts` against the engine itself, mocked clock, mounted surface.
+
+**6. Read the refusals.** A dim transcript line names plugin, event and reason; `claude --debug` has every one.
+
+---
+
+# Outside the Session, and Sharing
+
+Load from disk for one session: `claude --plugin-dir <folder>`. Where no flag can be given: `CLAUDE_CODE_PLUGIN_DIRS`. An interactive session watches the folder and reloads on save.
+
+--
+
+To share, copy the mod out of the mods folder into a repository and add one file:
+
+```json
+// .claude-plugin/marketplace.json
+{ "name": "practice-mods", "owner": { "name": "me" },
+  "plugins": [{ "name": "trip-guard", "source": "./" }] }
+```
+
+--
+
+Someone else types, in a terminal session:
+
+```
+/plugin install trip-guard --marketplace owner/repo
+```
+
+`y` to add the marketplace, a scope, and the hooks run from then on. `claude plugin validate` checks the marketplace file too.
+
+---
+
+# Summary
+
+| Do | Because |
+|---|---|
+| Reach for a mod only past what a hook can do | a hook is three lines of shell; a mod is a loaded program |
+| Grep the generated types; read the declaration | the API moves; the types file is this build's truth |
+| `.catch` on every guard | a hook that throws is skipped and the chain continues |
+| State in `$.state` / `$.store`, never module variables | reloads reset the module |
+| Render hooks read, handlers write | a write while drawing is denied |
+| `validate`, `tsc`, `test` before trusting it | the engine refuses quietly |
+| Share through a marketplace file | one line installs it elsewhere |
+
+--
+
+The drill builds `trip-guard` (deny, status line, toast), validates, type-checks, tests, breaks the guard to read a refusal, and dry-runs the marketplace file.
+
+---
+class: center, middle, inverse
+
+# Backup Slides
+
+---
+name: catch-why
+
+# Backup: Why a Guard Needs `.catch`
+
+.small[
+A hook that **throws, answers a wrong shape, or outlasts its budget is skipped**, and the chain continues without it. For a hook that draws a band that means a missing line. For a hook that *guards* (refuses a tool call, a prompt, a command) it means the guarded thing goes through.
+
+So a guard is written with a handler that answers in its place:
+
+```ts
+on('tool.call', { tool: 'Edit' }, guard)
+  .catch(($, e, next) => next.called ? next(e) : { deny: 'why' })
+```
+
+- `next.called` false: the guard failed before deciding → **refuse**.
+- `next.called` true: it had already let the call through; `next(e)` replays what that call settled to, nothing runs twice.
+
+`claude plugin validate` lists each such hook as `gating hook with .catch` or `gating hook without .catch`. A fact, not a warning: which it should be is yours to decide, and for anything that protects a file the answer is "with".
+
+The drill's Q6 removes the handler, makes the hook throw, and watches the protected edit go through with one dim transcript line explaining why.
+]
+
+<a href="#example-guard" class="nav-btn-br">← back</a>

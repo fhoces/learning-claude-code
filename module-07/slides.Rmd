@@ -1,0 +1,319 @@
+---
+title: "Module 7: Hooks"
+subtitle: "Events, matchers, exit codes, JSON decisions; enforcement that memory cannot give"
+output:
+  xaringan::moon_reader:
+    css: [default, default-fonts]
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: "16:9"
+---
+
+```{css, echo=FALSE}
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small .remark-code, .small table { font-size: 70%; }
+.small { font-size: 80%; }
+.nav-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 40px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn:hover { background: #c5cae9; }
+.nav-btn-br {
+  position: absolute;
+  bottom: 12px;
+  right: 70px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn-br:hover { background: #c5cae9; }
+.inline-btn {
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-decoration: none;
+  color: #1a237e;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.inline-btn:hover { background: #c5cae9; }
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, fig.align = "center",
+  fig.width = 10, fig.height = 4.5, dpi = 150,
+  message = FALSE, warning = FALSE
+)
+library(tidyverse)
+theme_set(theme_minimal(base_size = 14))
+```
+
+# Course Map
+
+<table>
+<tr><th>#</th><th>Module</th><th>Status</th></tr>
+<tr><td>1</td><td><a href="../module-01/slides.html">Version control as the safety net</a></td><td>✓ done</td></tr>
+<tr><td>2</td><td><a href="../module-02/slides.html">Markdown as the interface</a></td><td>✓ done</td></tr>
+<tr><td>3</td><td><a href="../module-03/slides.html">Verification plans</a></td><td>✓ done</td></tr>
+<tr><td>4</td><td><a href="../module-04/slides.html">Token management</a></td><td>✓ done</td></tr>
+<tr><td>5</td><td><a href="../module-05/slides.html">Global and local memory</a></td><td>✓ done</td></tr>
+<tr><td>6</td><td><a href="../module-06/slides.html">Skills</a></td><td>✓ done</td></tr>
+<tr><td><b>7</b></td><td><b>Hooks</b> <i>(you are here)</i></td><td>← current</td></tr>
+<tr><td>8</td><td><a href="../module-08/slides.html">Mods</a></td><td>✓ done</td></tr>
+</table>
+
+---
+name: why-hooks
+
+# Memory Is Advice. A Hook Is Enforcement.
+
+Modules 2, 5 and 6 are all **context**: instructions the model weighs.
+
+--
+
+From the memory docs:
+
+> Claude treats them as context, not enforced configuration. To block an action regardless of what Claude decides, use a `PreToolUse` hook.
+
+--
+
+The signal that a rule should move from memory to a hook: it begins with **always** or **never**, and one slip is expensive.
+
+- never edit `data/trips.csv` (it is generated)
+- never push without the flag file
+- always lint after an R edit
+
+--
+
+Second reason, from module 4: a hook can **rewrite a command before it runs**, so noisy output reaches the model already filtered.
+
+---
+name: events
+
+# The Events That Matter Daily
+
+| Event | Fires | Can block |
+|---|---|---|
+| `SessionStart` | session begins or resumes | no; stdout → context |
+| `UserPromptSubmit` | prompt submitted, before Claude sees it | yes |
+| **`PreToolUse`** | before a tool call runs | **yes** |
+| `PostToolUse` | after a tool call succeeds | no; stderr → Claude |
+| `PostToolUseFailure` | after a tool call fails | no |
+| `Stop` | Claude finishes responding | yes (send it back to work) |
+| `SubagentStart` / `SubagentStop` | a subagent spawns / finishes | no |
+| `PreCompact` / `PostCompact` | around compaction | no |
+| `SessionEnd` | session terminates | no |
+
+--
+
+Over thirty exist (permission requests, model switches, worktrees, config and file changes, MCP elicitation). These ten cover a research workflow.
+
+---
+name: config
+
+# Configuration: Event, Matcher Group, Handlers
+
+`.claude/settings.json` (project, shared), `~/.claude/settings.json` (user), `.claude/settings.local.json` (private), a plugin's `hooks/hooks.json`, or a skill's frontmatter.
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Edit|Write",
+        "hooks": [
+          { "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/protect-data.sh",
+            "timeout": 10 }
+        ] }
+    ]
+  }
+}
+```
+
+--
+
+- `matcher`: against `tool_name`. Plain names and `|` are exact; any other character makes it a regex. Omitted or `"*"` matches all.
+- `if`: a permission rule (`"Bash(git push *)"`) filtering tool events further.
+- `type`: `command`, `prompt`, `agent`, `http`, `mcp_tool`. `async: true` runs without blocking.
+
+`/hooks` shows what is registered and from where.
+
+---
+name: io
+
+# Input on stdin, Decision on stdout, Reason on stderr
+
+The hook reads one JSON object:
+
+```json
+{ "session_id": "abc", "cwd": "/Users/me/claude-code-practice",
+  "hook_event_name": "PreToolUse", "permission_mode": "default",
+  "tool_name": "Edit", "tool_input": { "file_path": "data/trips.csv", ... },
+  "tool_use_id": "toolu_01..." }
+```
+
+--
+
+`jq -r '.tool_input.file_path'` for an edit; `.tool_input.command` for Bash.
+
+--
+
+| Exit | Meaning |
+|---|---|
+| **0** | proceed. JSON on stdout = a decision; plain stdout → context on `SessionStart` / `UserPromptSubmit`, debug log elsewhere |
+| **2** | **block**, stderr is the reason Claude sees. On `PostToolUse` the tool already ran: stderr is feedback |
+| other | non-blocking error; proceeds; first stderr line in the transcript. **Exit 1 does not block** |
+
+---
+
+# JSON Decisions for Finer Control
+
+Exit 0 and print:
+
+```json
+{ "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "data/trips.csv is generated; edit build_data.R instead" } }
+```
+
+--
+
+- `permissionDecision`: `allow`, `deny`, `ask`, `defer`
+- `updatedInput`: rewrite the tool's arguments before it runs (the prefilter)
+- `additionalContext`: inject text as a system reminder
+
+--
+
+Other events use a top-level `{ "decision": "block", "reason": "..." }`. Universal: `{ "continue": false, "stopReason": "..." }` stops Claude entirely.
+
+---
+name: pattern-protect
+
+# Pattern 1: Protect a File
+
+```bash
+#!/bin/bash
+input=$(cat)
+path=$(echo "$input" | jq -r '.tool_input.file_path // empty')
+case "$path" in
+  */data/trips.csv|data/trips.csv)
+    echo "data/trips.csv is generated by data/build_data.R; edit the generator." >&2
+    exit 2 ;;
+esac
+exit 0
+```
+
+--
+
+Test it **by hand** before registering:
+
+```bash
+jq -n '{tool_input:{file_path:"data/trips.csv"}}' | .claude/hooks/protect-data.sh; echo "exit $?"
+```
+
+Expected: the message, `exit 2`. Then a safe path: silent, `exit 0`.
+
+--
+
+Registered on `PreToolUse` with matcher `Edit|Write`, the edit never happens and Claude reads the reason.
+
+---
+name: pattern-gate
+
+# Pattern 2: Gate the Push on a Flag File
+
+Module 1's rule ("the push is its own approval step"), enforced:
+
+```bash
+#!/bin/bash
+if [ -f .push-ok ]; then rm -f .push-ok; exit 0; fi
+echo "No .push-ok flag. Run 'touch .push-ok' yourself to approve one push." >&2
+exit 2
+```
+
+```json
+{ "matcher": "Bash",
+  "hooks": [ { "type": "command", "if": "Bash(git push *)",
+               "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/gate-push.sh" } ] }
+```
+
+--
+
+The `if` rule means the script only runs for pushes. One `touch .push-ok` by you approves exactly one push; the hook consumes the flag.
+
+---
+
+# Patterns 3 to 5: Lint, Prefilter, Inject
+
+**Lint after an R edit.** `PostToolUse` on `Edit|Write`; if the path ends in `.R`, run `lintr::lint()`; non-empty output on stderr with exit 2 makes Claude see it and fix it.
+
+--
+
+**Prefilter.** `PreToolUse` on `Bash`; if the command is a test runner, return `updatedInput` with `... 2>&1 | grep -A5 FAIL | head -100`. Hundreds of tokens instead of tens of thousands (module 4).
+
+--
+
+**Inject at session start.** `SessionStart`, no matcher:
+
+```bash
+echo "Branch: $(git branch --show-current). Last commit: $(git log -1 --format=%s)."
+[ -f NEXT_SESSION.md ] && cat NEXT_SESSION.md
+```
+
+Plain stdout lands in context. The handoff note from module 2 reads itself.
+
+--
+
+**Send it back to work.** `Stop`; run the tests; on failure `{ "decision": "block", "reason": "..." }`. Careful: blocking on something the model cannot fix makes a loop.
+
+---
+name: debugging
+
+# Debugging a Hook That Does Nothing
+
+- **`/hooks`**: is it registered, and from which file?
+- **`chmod +x`** and a valid interpreter line. A hook that fails to start is a *non-blocking* error: one dim transcript line you will miss.
+- **`claude --debug`** or `--debug-file /tmp/hooks.log`: every run, its exit code, and for a rewrite the "modified tool input keys" line.
+- **Pipe JSON in by hand** with `jq -n` and check exit code and stderr before blaming the harness.
+- **Settings precedence**: a project hook and a user hook on the same event both run.
+
+--
+
+Trust: a hook in a repo's `.claude/settings.json` runs on your machine once you trust the workspace. **Read a repo's hooks before trusting it.**
+
+---
+
+# Summary
+
+| Need | Event | Matcher / `if` | Returns |
+|---|---|---|---|
+| never edit the generated CSV | `PreToolUse` | `Edit` or `Write` | exit 2 + stderr |
+| one approved push at a time | `PreToolUse` | `Bash` + `if: Bash(git push *)` | exit 2 unless flag |
+| lint every R edit | `PostToolUse` | `Edit` or `Write` | exit 2 + lint on stderr |
+| filter a test run | `PreToolUse` | `Bash` | JSON `updatedInput` |
+| read the handoff note | `SessionStart` | none | plain stdout |
+| don't stop until tests pass | `Stop` | none | `{decision: block}` |
+
+--
+
+The drill writes the first five, triggers each from a live session, tests one by hand with piped JSON, and breaks one on purpose to see what a silent failure looks like.
+
+Next: when a hook is not enough because the change is to the **interface** itself, that is a mod.

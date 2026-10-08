@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Module 2: Markdown as the Interface</title>
+    <meta charset="utf-8" />
+    <script src="slides_files/header-attrs-2.29/header-attrs.js"></script>
+    <link href="slides_files/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link href="slides_files/remark-css-0.0.1/default-fonts.css" rel="stylesheet" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# Module 2: Markdown as the Interface
+]
+.subtitle[
+## CLAUDE.md, specs, briefs, and the docs Claude writes back
+]
+
+---
+
+
+&lt;style type="text/css"&gt;
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small .remark-code, .small table { font-size: 70%; }
+.small { font-size: 80%; }
+.nav-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 40px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn:hover { background: #c5cae9; }
+.nav-btn-br {
+  position: absolute;
+  bottom: 12px;
+  right: 70px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn-br:hover { background: #c5cae9; }
+.inline-btn {
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-decoration: none;
+  color: #1a237e;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.inline-btn:hover { background: #c5cae9; }
+&lt;/style&gt;
+
+
+
+# Course Map
+
+&lt;table&gt;
+&lt;tr&gt;&lt;th&gt;#&lt;/th&gt;&lt;th&gt;Module&lt;/th&gt;&lt;th&gt;Status&lt;/th&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;1&lt;/td&gt;&lt;td&gt;&lt;a href="../module-01/slides.html"&gt;Version control as the safety net&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;b&gt;2&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;b&gt;Markdown as the interface&lt;/b&gt; &lt;i&gt;(you are here)&lt;/i&gt;&lt;/td&gt;&lt;td&gt;← current&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;3&lt;/td&gt;&lt;td&gt;&lt;a href="../module-03/slides.html"&gt;Verification plans&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;4&lt;/td&gt;&lt;td&gt;&lt;a href="../module-04/slides.html"&gt;Token management&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;5&lt;/td&gt;&lt;td&gt;&lt;a href="../module-05/slides.html"&gt;Global and local memory&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;&lt;a href="../module-06/slides.html"&gt;Skills&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;7&lt;/td&gt;&lt;td&gt;&lt;a href="../module-07/slides.html"&gt;Hooks&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;8&lt;/td&gt;&lt;td&gt;&lt;a href="../module-08/slides.html"&gt;Mods&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;
+
+---
+
+# Markdown Runs Both Ways
+
+.pull-left[
+**What you write for Claude**
+
+- `CLAUDE.md` and `.claude/rules/`
+- a spec (`learning-plan.md`, `SPEC.md`)
+- a brief for an agent or a peer session
+- a skill (`SKILL.md`, module 6)
+]
+
+.pull-right[
+**What Claude writes for you**
+
+- `README.md`, `concepts.md`
+- plans and handoff notes
+- findings reports from verifier agents
+- commit messages
+]
+
+--
+
+Both directions have the same failure: a document that **reads well and is wrong**. The module is about writing that cannot drift and checks that catch it when it does.
+
+---
+name: facts-not-procedures
+
+# Instruction Files: Facts, Not Procedures
+
+What the docs say, and what experience confirms, about `CLAUDE.md`:
+
+--
+
+**Facts.** Build commands, conventions, layout, "always do X." A multi-step procedure that matters for one kind of task goes in a skill or a path-scoped rule, loaded only when needed.
+
+--
+
+**Under 200 lines.** Every line is paid for on every request, and adherence drops as the file grows. `@imports` organize a long file; they do not make it cheaper. Imported files load at launch too.
+
+--
+
+**Consistent.** Two contradicting lines let the model pick one. `/doctor prompt-audit` finds contradictions and stale entries.
+
+--
+
+**Context, not enforcement.** Everything here is weighed, not obeyed. To make something impossible, write a hook (module 7).
+
+---
+
+# `/init` Writes the Discoverable Half
+
+`/init` reads the codebase and drafts a `CLAUDE.md`: build commands, test commands, conventions it can see. If one exists, it suggests improvements instead of overwriting.
+
+--
+
+What it cannot discover, and what is worth adding by hand:
+
+- **why** a convention exists ("the CSV is generated; committing it would make every rebuild a diff")
+- **what not to do** ("never add `.DS_Store` to a per-repo `.gitignore`; the global excludes file covers it")
+- **what "done" means** ("script runs clean, one row per city, bad rows excluded and counted")
+
+--
+
+The drill's target: a `CLAUDE.md` for the practice repo under 40 lines, every line a fact.
+
+---
+name: lessons-library
+
+# The Lessons-Library Pattern
+
+A global `CLAUDE.md` that keeps every lesson from every session passes 200 lines within months.
+
+--
+
+What keeps it under control:
+
+.small[
+```markdown
+# Lessons library: read the matching file BEFORE that kind of task
+
+Playbooks live in ~/.claude/lessons/, one file per area. NOT loaded
+automatically. When a task touches an area below, read that whole file first.
+When you learn a new lesson in one of these areas, add it there, not here.
+
+- latex.md (18): any LaTeX build, bibtex, page-fitting, latexdiff, TikZ.
+- slides-xaringan.md (12): authoring or verifying xaringan decks.
+- git-collab.md (16): stash, cross-checks, shared-doc sync, gh auth, hooks.
+```
+]
+
+--
+
+The writing lesson, separate from the mechanics (module 5): an index line must say **when** to read the file, not just what it contains. "Any LaTeX build" is a trigger; "LaTeX notes" is not.
+
+---
+
+# A Burned Example: Number vs Definition
+
+An instruction read:
+
+&gt; for the 112 cases where control is an empty arm
+
+The empty-arm cases were the other **205**. The number and the definition picked out different sets.
+
+--
+
+The definition is usually the load-bearing intent; the number is the slip.
+
+--
+
+When **writing** a spec: give the definition, let the number be computed.
+
+When **reading** one and the two disagree: surface the contradiction, implement against the definition (per row, not a hardcoded count), confirm before changing anything published. Do not silently pick the number.
+
+---
+name: spec-main
+
+# One Document Is the Spec
+
+Every course in this collection has a `learning-plan.md`. The README, the hub page, each module's `concepts.md` are **derived** from it and expected to agree with it.
+
+--
+
+The scaffolding skill reads the plan first and stops if the requested module is not in it.
+
+--
+
+The practice, independent of the file name:
+
+&gt; One document is the spec. Everything else is derived. A disagreement is a bug in the derived document until proven otherwise.
+
+--
+
+In the drill, `SPEC.md` for the practice repo is written **ahead of the code** on purpose: it names an exclusion rule the script does not implement yet. The README then has to say so in a "Known gaps" section rather than describing the script as if it were the spec.
+
+---
+
+# Briefs: The Only Context the Recipient Has
+
+A subagent, a peer session, a cloud session: each starts with nothing but the brief.
+
+--
+
+What works:
+
+- **Goal and what is ruled out.** "Add the exclusion rule from SPEC.md; the median column is already done."
+- **Pointers, not retyping.** "Read SPEC.md and data/trip_metrics.R."
+- **What to do with the result.** "Commit per chunk, do not push, return a summary as text."
+- **Self-contained.** A restarted peer session has a new name and none of the earlier context.
+
+&lt;a href="#brief-scoping" class="nav-btn"&gt;a scoping burn →&lt;/a&gt;
+
+---
+
+# What Claude Writes: Three Kinds
+
+**README and concepts.** Derived from the spec. Numbers computed from the source, not typed from memory. "24 CSVs" after the pipeline makes 29 is the commonest stale fact.
+
+--
+
+**Plans and handoff notes.** A `NEXT SESSION` block at the end of a session, written to disk: state, rules, build and verify steps, the file boundary for the next session. A conditional thread ("when a cloud session asks") gets one line or is dropped. Once the user dismisses a thread, it stays out of every later recap.
+
+--
+
+**Findings reports.** A verifier agent's output. Save each to disk as it lands. A subagent asked to write a report file is refused ("return findings as text"), so the main session does the writing.
+
+---
+name: grep-main
+
+# Facts That Survive `grep`
+
+A README audit for a stale count:
+
+```bash
+grep -n "24 CSVs" README.md        # finds nothing...
+```
+
+...because the text says:
+
+```
+the 24
+handoff CSVs
+```
+
+--
+
+Line-based search misses a fact wrapped across lines. Same trap in LaTeX: `555~0123` slips past a space-or-hyphen pattern for a phone number.
+
+--
+
+Two habits:
+
+- **Writing:** one fact, one line, one spelling.
+- **Auditing:** sweep with the bare number (`grep -nE '\b24\b'`) plus a context pass, or read the whole section. And on this machine `grep` is `ugrep`, which has produced silent false negatives: confirm an "absent" with python `'phrase' in open(f).read()` before concluding.
+
+---
+
+# House Style Belongs in the Instruction File
+
+This collection's `CLAUDE.md` carries a prose style for anything user-facing: no em-dashes, short sentences, few colons and semicolons, no opening affirmations, no filler.
+
+--
+
+Why it lives there instead of being re-explained each session:
+
+- it is a **fact about every task**, which is exactly what the file is for
+- it is **checkable**: `grep -c` for the character before a commit, exit code and all
+
+--
+
+```bash
+# zero em-dashes is the GOOD result, and grep -c exits 1 on zero:
+# chain a commit after it and the commit is skipped. Keep them separate.
+perl -CSD -ne 'print "$ARGV:$.: $_" if /\x{2014}/' README.md
+```
+
+---
+
+# Summary
+
+| Document | Written by | Rule |
+|---|---|---|
+| `CLAUDE.md` | you (+ `/init`) | facts, under 200 lines, audited for contradictions |
+| playbook files | you | one per area, index line says *when* to read |
+| spec | you | one source of truth; everything else derived |
+| brief | you | goal, pointers, scoped rules, what to return |
+| README / concepts | Claude | derived from the spec; numbers computed, one per line |
+| handoff note | Claude | on disk, state + rules + verify steps + file boundary |
+| findings | agent, saved by main | to disk as they land |
+
+--
+
+The drill builds all of the "you" rows for the practice repo and audits the first "Claude" row.
+
+---
+class: center, middle, inverse
+
+# Backup Slides
+
+---
+name: brief-scoping
+
+# Backup: A Scoping Burn (2026-09)
+
+.small[
+A brief to a peer session said:
+
+&gt; Don't name any school.
+
+Meant: the school being applied to. Read as: every institution. The peer stripped three universities from a web page, all of them true affiliations the source kept.
+
+The fix is in the writing:
+
+&gt; Don't name X, Y, Z (the target). Other affiliations stay as in the source. Citations of that faculty's published work are fine.
+
+Two more from the same family:
+
+- Before asking a peer to "restore" something, check the diff. One "missing" item had never been on the page; the request was really an addition.
+- From the receiving side: when a relayed rule would delete real content, ask for its exact scope before stripping anything.
+]
+
+&lt;a href="#spec-main" class="nav-btn-br"&gt;← back&lt;/a&gt;
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

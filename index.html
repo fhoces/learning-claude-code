@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Learning Claude Code</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    max-width: 760px;
+    margin: 3em auto;
+    padding: 0 1.2em;
+    color: #222;
+    line-height: 1.55;
+  }
+  h1 { border-bottom: 1px solid #ddd; padding-bottom: 0.3em; }
+  h2 { margin-top: 2em; }
+  table { border-collapse: collapse; width: 100%; margin: 1.5em 0; }
+  th, td { padding: 0.55em 0.8em; border-bottom: 1px solid #eee; text-align: left; }
+  th { background: #f6f8fa; }
+  td.num { width: 3em; color: #666; }
+  td.status { width: 7em; color: #888; font-size: 0.9em; }
+  a { color: #0366d6; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .small { font-size: 0.9em; color: #555; }
+  pre { background: #f6f8fa; padding: 0.8em; border-radius: 4px; overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<h1>Learning Claude Code</h1>
+
+<p>
+An 8-module course on working with Claude Code as a daily tool for
+applied research and data work. The practices (version control,
+documentation, verification, token budgeting) and the extension
+mechanisms (memory, skills, hooks, mods) that make an agentic coding
+session safe, cheap, and reproducible. Every module is
+concept &rarr; show &rarr; drill.
+</p>
+
+<h2>Quick start</h2>
+
+<pre>git clone https://github.com/fhoces/learning-claude-code
+cd learning-claude-code
+Rscript data/build_data.R      # build the practice dataset
+cat module-01/exercise.md      # then open a Claude Code session</pre>
+
+<h2>Modules</h2>
+
+<table>
+  <tr><th>#</th><th>Module</th><th>Status</th></tr>
+  <tr>
+    <td class="num">1</td>
+    <td><a href="module-01/slides.html">Version control as the safety net</a> &mdash; commits, diffs, worktrees, recovery, push gating, concurrent sessions</td>
+    <td class="status">&#10003; done</td>
+  </tr>
+  <tr>
+    <td class="num">2</td>
+    <td><a href="module-02/slides.html">Markdown as the interface</a> &mdash; CLAUDE.md, specs, briefs, and the docs Claude writes back</td>
+    <td class="status">&#10003; done</td>
+  </tr>
+  <tr>
+    <td class="num">3</td>
+    <td><a href="module-03/slides.html">Verification plans</a> &mdash; say how you will check before you build; checks that lie</td>
+    <td class="status">&#10003; done</td>
+  </tr>
+  <tr>
+    <td class="num">4</td>
+    <td><a href="module-04/slides.html">Token management</a> &mdash; what fills context, what the cache saves, the levers that cut spend</td>
+    <td class="status">&#10003; done</td>
+  </tr>
+  <tr>
+    <td class="num">5</td>
+    <td><a href="module-05/slides.html">Global and local memory</a> &mdash; user, project and auto memory; what belongs where; the lessons library</td>
+    <td class="status">&#10003; done</td>
+  </tr>
+  <tr>
+    <td class="num">6</td>
+    <td><a href="module-06/slides.html">Skills</a> &mdash; SKILL.md anatomy, invocation control, arguments, bundled scripts</td>
+    <td class="status">&#10003; done</td>
+  </tr>
+  <tr>
+    <td class="num">7</td>
+    <td><a href="module-07/slides.html">Hooks</a> &mdash; events, matchers, exit codes, JSON decisions; enforcement that memory cannot give</td>
+    <td class="status">&#10003; done</td>
+  </tr>
+  <tr>
+    <td class="num">8</td>
+    <td><a href="module-08/slides.html">Mods</a> &mdash; function hooks in TypeScript: panes, bands, status, toasts, guards</td>
+    <td class="status">&#10003; done</td>
+  </tr>
+</table>
+
+<h2>Companion courses</h2>
+
+<ul>
+  <li><a href="https://github.com/fhoces/admin-data-pipelines">admin-data-pipelines</a> &mdash; the pipeline side of policy research (module 8 there covers AI tools in pipelines)</li>
+  <li><a href="https://github.com/fhoces/sql-industry-prep">sql-industry-prep</a> &mdash; SQL querying</li>
+  <li><a href="https://github.com/fhoces/python-for-r-users">python-for-r-users</a> &mdash; pandas + statsmodels from R</li>
+  <li><a href="https://github.com/fhoces/experimentation-refresher">experimentation-refresher</a> &mdash; A/B testing and experimental design</li>
+  <li><a href="https://github.com/fhoces/causal-inference-beyond-ab">causal-inference-beyond-ab</a> &mdash; observational causal inference</li>
+</ul>
+
+<p class="small">
+  Source: <a href="https://github.com/fhoces/learning-claude-code">github.com/fhoces/learning-claude-code</a>
+</p>
+
+</body>
+</html>

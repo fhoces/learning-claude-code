@@ -1,0 +1,294 @@
+---
+title: "Module 5: Global and Local Memory"
+subtitle: "User, project and auto memory; what belongs where; the lessons library"
+output:
+  xaringan::moon_reader:
+    css: [default, default-fonts]
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: "16:9"
+---
+
+```{css, echo=FALSE}
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small .remark-code, .small table { font-size: 70%; }
+.small { font-size: 80%; }
+.nav-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 40px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn:hover { background: #c5cae9; }
+.nav-btn-br {
+  position: absolute;
+  bottom: 12px;
+  right: 70px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn-br:hover { background: #c5cae9; }
+.inline-btn {
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-decoration: none;
+  color: #1a237e;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.inline-btn:hover { background: #c5cae9; }
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, fig.align = "center",
+  fig.width = 10, fig.height = 4.5, dpi = 150,
+  message = FALSE, warning = FALSE
+)
+library(tidyverse)
+theme_set(theme_minimal(base_size = 14))
+```
+
+# Course Map
+
+<table>
+<tr><th>#</th><th>Module</th><th>Status</th></tr>
+<tr><td>1</td><td><a href="../module-01/slides.html">Version control as the safety net</a></td><td>✓ done</td></tr>
+<tr><td>2</td><td><a href="../module-02/slides.html">Markdown as the interface</a></td><td>✓ done</td></tr>
+<tr><td>3</td><td><a href="../module-03/slides.html">Verification plans</a></td><td>✓ done</td></tr>
+<tr><td>4</td><td><a href="../module-04/slides.html">Token management</a></td><td>✓ done</td></tr>
+<tr><td><b>5</b></td><td><b>Global and local memory</b> <i>(you are here)</i></td><td>← current</td></tr>
+<tr><td>6</td><td><a href="../module-06/slides.html">Skills</a></td><td>✓ done</td></tr>
+<tr><td>7</td><td><a href="../module-07/slides.html">Hooks</a></td><td>✓ done</td></tr>
+<tr><td>8</td><td><a href="../module-08/slides.html">Mods</a></td><td>✓ done</td></tr>
+</table>
+
+---
+name: layers
+
+# The Layers
+
+.small[
+| Layer | Path | Who writes | Loaded |
+|---|---|---|---|
+| Managed policy | `/Library/Application Support/ClaudeCode/CLAUDE.md` | an organization | every session |
+| **User (global)** | `~/.claude/CLAUDE.md`, `~/.claude/rules/*.md` | you | every session, every project |
+| **Project** | `./CLAUDE.md` or `./.claude/CLAUDE.md` | you, via git | every session in the repo |
+| Project local | `./CLAUDE.local.md` (gitignored) | you | with the project file |
+| Project rules | `./.claude/rules/*.md` | you, via git | every session, or on demand with `paths:` |
+| Subdirectory | `<subdir>/CLAUDE.md` | you | when Claude touches a file there |
+| **Auto memory** | `~/.claude/projects/<key>/memory/` | Claude | index every session; topic files on demand |
+]
+
+--
+
+Module 2 was about writing these well. This module: where they live, how they load, what goes in which, and how they go missing.
+
+---
+
+# How the Instruction Files Load
+
+Every `CLAUDE.md` and `CLAUDE.local.md` from the filesystem root **down to** the working directory, concatenated. The file closest to where you launched is read last.
+
+--
+
+Within one directory, `CLAUDE.local.md` is appended after `CLAUDE.md`.
+
+--
+
+A subdirectory's `CLAUDE.md` loads once Claude reads, writes or edits a file in it. A `cat` of one file counts as a read.
+
+--
+
+**Nothing overrides anything.** It is all concatenated. Two contradicting lines in different layers are both in context, and the model picks. That is the whole reason `/doctor prompt-audit` exists.
+
+--
+
+`@path/to/file` imports at launch. Organizes a long file; does not make it cheaper.
+
+---
+name: rules-paths
+
+# Rules With Paths
+
+`.claude/rules/r-scripts.md`:
+
+```markdown
+---
+paths:
+  - "data/**/*.R"
+---
+# R scripts in data/
+Use base pipes (|>), never magrittr.
+Print the excluded-row count before any summary.
+```
+
+--
+
+Loads only when Claude works with a matching file. Without `paths:`, a rule loads every session like `CLAUDE.md`.
+
+--
+
+`~/.claude/rules/` holds the same thing for every project. The directory accepts symlinks, so one shared rule set can be linked into several repos (an approval dialog once per project).
+
+The drill proves the scoping with two headless probes: before and after reading an R file.
+
+---
+name: auto-memory
+
+# Auto Memory: Claude's Own Notes
+
+```
+~/.claude/projects/<key>/memory/
+├── MEMORY.md             # index: one line per memory, loaded every session
+├── user_role.md          # type: user
+├── feedback_pipes.md     # type: feedback
+├── project_deadline.md   # type: project
+└── reference_tracker.md  # type: reference
+```
+
+--
+
+- The first **200 lines or 25 KB** of `MEMORY.md` load; the rest is dropped. Topic files are read on demand. Near the limit the harness tells Claude to shorten the index.
+- Keyed by the **git repository**: worktrees and subdirectories share one store.
+- **Machine-local.** Never reaches a cloud session. Not inherited by subagents (a fork excepted).
+- `/memory` toggles it; `autoMemoryDirectory` in settings moves it.
+
+--
+
+A wrong inference persists until edited. Read the index now and then.
+
+---
+
+# What Belongs Where
+
+The test: **who else should see it, and when is it needed?**
+
+| It is... | Put it in |
+|---|---|
+| a rule about how you work, every project | user `CLAUDE.md` |
+| a project fact collaborators should have | project `CLAUDE.md` |
+| a project fact that is yours alone (paths, URLs) | `CLAUDE.local.md` |
+| needed only when touching certain files | a path-scoped rule |
+| a multi-step procedure for one kind of task | a **skill** (module 6), not memory |
+| something that must happen regardless | a **hook** (module 7), not memory |
+| a correction you gave, or a preference | auto memory, written by Claude |
+
+--
+
+For auto memory, the harness's own rules: one fact per file; nothing the repo already records; link related memories; update, don't duplicate; delete what turns out wrong; verify a named file or flag still exists before recommending it.
+
+---
+name: lessons-library
+
+# The Lessons-Library Pattern
+
+A global file that keeps every lesson passes 200 lines within months. Adherence drops, and every request pays for it.
+
+--
+
+The split:
+
+1. **The always-loaded file** keeps rules for every task plus a short **index**: one line per area, saying *when* to read it.
+2. **Each area's playbook** is its own file (`~/.claude/lessons/latex.md`), read in full before a task in that area.
+3. **New lessons go to the area file**, not the index. Old one-offs go to an archive.
+
+--
+
+This is module 4's cost lever on the memory side: pay for the index every request, pay for the playbook only when the task needs it. And a short index is one Claude actually consults.
+
+---
+
+# The End-of-Session Ritual
+
+A session that learned something writes it down before `/clear`.
+
+--
+
+Codified here as a skill with a trigger token: refresh **local** project memory and the **global** instruction file, de-personalized; suggest a skill for any workflow that repeated; offer a tailored `NEXT SESSION` note to paste into the next session. The token is the go-ahead. The skill does not ask again.
+
+--
+
+Mid-session version: when the context is getting expensive, say so and offer the refresh before continuing. Same moment you would suggest `/clear`.
+
+--
+
+A sibling habit for confusions: when the user says "I don't understand X", log it (date, concept, what was unclear). Before explaining anything in that family later, add detail and a concrete example pre-emptively. The log tunes how to explain; it is not a verdict on anyone.
+
+---
+name: missing-1
+
+# Where Memory Goes Missing (1): The Key Changed
+
+The memory directory's `<key>` is derived from the path. A harness update changed the derivation once (observed 2026-06: `My_Project` became `My-Project`).
+
+--
+
+The old store became invisible. An empty one auto-created at the new key. Symptom: "my project memory vanished", with the files intact under a sibling key.
+
+--
+
+```bash
+find ~/.claude/projects -maxdepth 2 -type d -name memory | \
+  while read d; do echo "[$(ls -A "$d" | wc -l)] $d"; done
+```
+
+Compare with the key named in the session-start reminder. Fix: a **real directory** at the live key, not a symlink (recall does not traverse one). Verify end to end:
+
+```bash
+claude -p "State one fact from your memory index, or reply NO INDEX."
+```
+
+---
+
+# Where Memory Goes Missing (2): Cloud Sessions
+
+A session on claude.ai sees the repo clone and the account. Not this machine's `~/.claude`:
+
+- no user `CLAUDE.md`, no `~/.claude/rules/`
+- no `~/.claude/skills/`, no hooks from user settings
+- no auto memory
+
+--
+
+What works:
+
+- commit project rules and skills **into the repo**: `.claude/rules/`, `.claude/skills/`, project `CLAUDE.md`
+- have cloud sessions write their memory to a committed `.claude/memory/` (project notes plus a global inbox) that the next local session drains into the real stores
+
+--
+
+Check portability before moving a skill to the cloud: most skills here need this machine (sandbox paths, `latexmk`, Ghostscript, `pbcopy`).
+
+---
+
+# Summary
+
+| Layer | Loads | Budget | Drill proves it with |
+|---|---|---|---|
+| user `CLAUDE.md` | every session | share of 200 lines | headless probe: GLOBAL |
+| project `CLAUDE.md` | every session in repo | under 200 lines | probe: TRIPS |
+| `CLAUDE.local.md` | with the project file | small | probe: LAPTOP |
+| path rule | when a matching file is touched | per rule | NONE, then SCOPED after reading an R file |
+| lesson file | when the index line says | any | PLAYBOOK |
+| auto memory | index every session | 200 lines / 25 KB | edit one, see it persist |
+
+--
+
+Next: a multi-step procedure does not belong in any of these rows. That is a skill.

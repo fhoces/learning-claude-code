@@ -1,0 +1,309 @@
+---
+title: "Module 3: Verification Plans"
+subtitle: "Say how you will check before you build; and the checks that lie"
+output:
+  xaringan::moon_reader:
+    css: [default, default-fonts]
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: "16:9"
+---
+
+```{css, echo=FALSE}
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small .remark-code, .small table { font-size: 70%; }
+.small { font-size: 80%; }
+.nav-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 40px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn:hover { background: #c5cae9; }
+.nav-btn-br {
+  position: absolute;
+  bottom: 12px;
+  right: 70px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn-br:hover { background: #c5cae9; }
+.inline-btn {
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-decoration: none;
+  color: #1a237e;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.inline-btn:hover { background: #c5cae9; }
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, fig.align = "center",
+  fig.width = 10, fig.height = 4.5, dpi = 150,
+  message = FALSE, warning = FALSE
+)
+library(tidyverse)
+theme_set(theme_minimal(base_size = 14))
+```
+
+# Course Map
+
+<table>
+<tr><th>#</th><th>Module</th><th>Status</th></tr>
+<tr><td>1</td><td><a href="../module-01/slides.html">Version control as the safety net</a></td><td>✓ done</td></tr>
+<tr><td>2</td><td><a href="../module-02/slides.html">Markdown as the interface</a></td><td>✓ done</td></tr>
+<tr><td><b>3</b></td><td><b>Verification plans</b> <i>(you are here)</i></td><td>← current</td></tr>
+<tr><td>4</td><td><a href="../module-04/slides.html">Token management</a></td><td>✓ done</td></tr>
+<tr><td>5</td><td><a href="../module-05/slides.html">Global and local memory</a></td><td>✓ done</td></tr>
+<tr><td>6</td><td><a href="../module-06/slides.html">Skills</a></td><td>✓ done</td></tr>
+<tr><td>7</td><td><a href="../module-07/slides.html">Hooks</a></td><td>✓ done</td></tr>
+<tr><td>8</td><td><a href="../module-08/slides.html">Mods</a></td><td>✓ done</td></tr>
+</table>
+
+---
+
+# The Rule, and Why It Is First
+
+At the top of this collection's global instructions:
+
+> **Before you do any work, mention how you could verify that work.**
+
+--
+
+Two properties a plan gets from being stated *before*:
+
+- it cannot be fitted to whatever came out
+- it is run by something other than the author's reasoning: a test, a render read back, a second agent, a number recomputed from the source
+
+--
+
+The running example: adding the exclusion rule from module 2's `SPEC.md` to `data/trip_metrics.R`. Three planted bad rows must be dropped before any metric is computed.
+
+---
+name: self-check
+
+# Why "I Verified It" Is Not Verification
+
+A fleet build (2026-09): seven slide decks, one agent each, every agent told to render and self-verify.
+
+--
+
+**7 of 7 passed their self-checks. 7 of 7 had real visual breakage.**
+
+--
+
+The builder cannot see the page it reasons about unless it rasterizes and reads it. Even then it is anchored on what it meant to produce.
+
+--
+
+The report of completion reads the same either way. A diff, a test, a rasterized page, a recomputed number: none of those have a tone.
+
+---
+
+# Three Levels of Check
+
+**Existence.** The file is there, the render finished, exit 0. Necessary, never sufficient. Most false positives live here.
+
+--
+
+**Correctness.** The artifact has the property the spec names. A test asserts it; a golden output matches; a page read back shows the title and no clipping; a render-time `stopifnot()` ties a number to the pipeline.
+
+--
+
+**Intent.** The change does what was asked and nothing else. The diff is the size of the request. A verifier that did not write it re-derives the key numbers from the raw source.
+
+--
+
+A plan names the level of each row. "Rendered without errors" is existence. "Page 12 rasterized and read, title present, last text row above 700 px" is correctness.
+
+---
+name: plan-table
+
+# The Plan Is a Table
+
+| Artifact | Check | Level | What failure looks like |
+|---|---|---|---|
+| `trip_metrics.R` | runs on `trips.csv` | existence | non-zero exit |
+| output | first line: "3 rows excluded" | correctness | any other count |
+| output | per-city `trips` sum to 4997 | correctness | 5000: rule not applied |
+| output | `median_fare` still present | correctness | column missing |
+| diff | one filter + one print, nothing else | intent | any other hunk |
+
+--
+
+The last column is the discipline. If you cannot say what failure would look like, the row is not a check. "Looks right" is existence pretending to be correctness.
+
+--
+
+Give the table to Claude in the prompt. The docs say the same from the cost side: a verification target lets the agent catch its own misses before you pay to request fixes.
+
+---
+
+# Checks That Work (1): Render, Then Read
+
+For anything visual: slides, a PDF page, a web page.
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless \
+  --print-to-pdf=/tmp/deck.pdf "file://$PWD/slides.html?print-pdf"
+Rscript -e 'png::writePNG(pdftools::pdf_render_page("/tmp/deck.pdf", 12, dpi = 150), "/tmp/p12.png")'
+```
+
+then **Read the PNG**. Look for a missing title, clipped bottom text, literal `$x$` where math should be, a footer button over a box.
+
+--
+
+What does not work: `grep` on the rendered HTML. xaringan embeds the whole source, escaped, so every tag and every computed value is "present" even when the slide renders wrong.
+
+--
+
+Sanity on the PNG itself: a slide is 80 to 130 KB; under 40 KB is a load failure; several pages with the same byte count are all the page-1 fallback.
+
+---
+
+# Checks That Work (2): Golden Output and Re-derivation
+
+**Golden output.** Same input, before and after, diff the outputs. For a change that *should* alter the output, predict the delta first:
+
+> three fewer rows; mean fare moves by less than a cent; the excluded count prints as 3
+
+--
+
+**Independent re-derivation.** A fresh agent, given the raw source and **not** the author's conclusion, recomputes each number.
+
+In a review loop this caught a hand-written annotation that was wrong while every computed number passed. Verify annotations, not just computations.
+
+--
+
+**Render-time assertion.** In a slide chunk:
+
+```r
+stopifnot(sum(metrics$trips) == nrow(clean_trips))
+```
+
+Drift fails the render instead of shipping.
+
+---
+name: definition-check
+
+# Checks That Work (3): The Definition, Not the Value
+
+A derived number can be right for the wrong reason.
+
+--
+
+A macro `FileDrawerPostExpl` = 48% was defined as `file_drawer - explained` (58 − 10.3: what is still missing). A draft cited it to mean "availability rose to about 48%" (42 + 6.2 = 48.2).
+
+--
+
+Both round to 48. The macro would have been **numerically right and semantically wrong**, and a value comparison passes it.
+
+--
+
+Habit: before citing a derived number, grep its pipeline definition. If two plausible computations land on the same rounded value, state which one the macro actually is.
+
+A second instance the same month: "18% of missing hypotheses explained" versus a table's "18.2% of explanations" are different quantities. Find the table that computes the claim before calling it inconsistent.
+
+---
+name: lies-1
+
+# Checks That Lie (1): Stale, Silent, Not-Really-Done
+
+Each reported success on a failure in a real session.
+
+--
+
+**The stale artifact.** `until [ -f /tmp/out.png ]; do sleep 1; done` exits at once on yesterday's file; the downstream `Read` inspects an old render and reports success. `rm -f` the target before polling, or compare `mtime` to the source.
+
+--
+
+**The silent no-op.** `perl -pe 's/\x{2014}/-/g'` without `-CSD` matches nothing and exits 0. BSD `sed` has no `\b`, so `sed -i 's/\bAI\b/x/'` exits 0 and changes nothing. Check that bytes changed, not that the command succeeded.
+
+--
+
+**The wrong "completed".** `cmd > log 2>&1 &` with `run_in_background` reports done when the *wrapper* exits. A background agent's "completed" can be a session-limit death at near-zero tokens. Tail the log; glance at the usage block.
+
+<a href="#lies-detail" class="nav-btn">four more →</a>
+
+---
+
+# Checks That Lie (2): The Half-Run Chain
+
+```bash
+cd proj && export BIBINPUTS=... && pdflatex main; bibtex main; pdflatex main
+```
+
+`cd` fails (already there, cwd reset by the harness). The `&&` chain aborts before the export. **Every `;`-separated command still runs**, now without the variable. Bibtex finds no databases; the "undefined citation" warnings look like a document bug.
+
+--
+
+Same family, the other direction:
+
+```bash
+grep -c 'TODO' README.md && git commit -m "clean"   # zero matches is the GOOD result
+```
+
+`grep -c` exits 1 on zero. The commit is skipped. The good result silently blocked the step after it.
+
+--
+
+Rule: diagnostics and mutations in separate calls. Make a whole chain `&&`, or export on its own line first.
+
+---
+
+# Summary
+
+| Do | Because |
+|---|---|
+| State the plan before the prompt, as a table | it cannot be fitted to the result |
+| One column for "what failure looks like" | a row without it is not a check |
+| At least one row that recomputes a number from data | messages the code prints about itself pass bugs |
+| Render and *read*; never grep rendered HTML | the source is embedded, escaped, always "present" |
+| Confirm a change by bytes or diff, not exit code | silent no-ops exit 0 |
+| Confirm "absent" with a second tool | the search tool has lied before |
+| Give the table to Claude in the prompt | it catches its own misses before you pay for a fix |
+
+--
+
+The drill writes the table for the exclusion rule, injects a bug, and shows which row catches it and which plan would have passed it.
+
+---
+class: center, middle, inverse
+
+# Backup Slides
+
+---
+name: lies-detail
+
+# Backup: Four More Checks That Lie
+
+.small[
+**The false-negative search.** `grep` on this machine is `ugrep`. Twice in one session it returned nothing for a phrase that was in the file (a `.tex` under `grep -rn --include='*.tex'`; a `\url{}` match), nearly producing a wrong "not in the source." Before concluding absence, confirm with `python3 -c "print('phrase' in open(f).read())"`. A context pattern like `.\{0,90\}word.\{0,60\}` over a large file fails with "exceeds complexity limits".
+
+**The print-to-PDF dropout.** Chrome's print can drop the final `--` reveal on a `class: center, middle` slide, or collapse every `count: false` group and every build to one page. If an untouched baseline slide shows the identical truncation it is the tool, not the edit. Reliable per-state check: remark's `#N` addresses the Nth generated state; compute N from the `.Rmd` and screenshot `slides.html#N`.
+
+**Low-DPI misreads.** A 42-dpi raster made "826,216" read as "B26,216". Fine for layout; before flagging a digit or a word, re-render that region at 150 dpi and crop.
+
+**The Edit that cannot find what Write just wrote.** An `old_string` copied verbatim from a file created seconds earlier fails with "not found." Re-read once after a `Write` before editing, or rewrite the whole file. Same symptom when a background agent edited the file after your last read, or when the `old_string` spans two distant copies of a repeated block (use `replace_all` on the short identical line).
+]
+
+<a href="#lies-1" class="nav-btn-br">← back</a>

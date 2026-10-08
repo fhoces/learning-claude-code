@@ -1,0 +1,300 @@
+---
+title: "Module 6: Skills"
+subtitle: "SKILL.md anatomy, invocation control, arguments, bundled scripts"
+output:
+  xaringan::moon_reader:
+    css: [default, default-fonts]
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: "16:9"
+---
+
+```{css, echo=FALSE}
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small .remark-code, .small table { font-size: 70%; }
+.small { font-size: 80%; }
+.nav-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 40px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn:hover { background: #c5cae9; }
+.nav-btn-br {
+  position: absolute;
+  bottom: 12px;
+  right: 70px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn-br:hover { background: #c5cae9; }
+.inline-btn {
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-decoration: none;
+  color: #1a237e;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.inline-btn:hover { background: #c5cae9; }
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, fig.align = "center",
+  fig.width = 10, fig.height = 4.5, dpi = 150,
+  message = FALSE, warning = FALSE
+)
+library(tidyverse)
+theme_set(theme_minimal(base_size = 14))
+```
+
+# Course Map
+
+<table>
+<tr><th>#</th><th>Module</th><th>Status</th></tr>
+<tr><td>1</td><td><a href="../module-01/slides.html">Version control as the safety net</a></td><td>✓ done</td></tr>
+<tr><td>2</td><td><a href="../module-02/slides.html">Markdown as the interface</a></td><td>✓ done</td></tr>
+<tr><td>3</td><td><a href="../module-03/slides.html">Verification plans</a></td><td>✓ done</td></tr>
+<tr><td>4</td><td><a href="../module-04/slides.html">Token management</a></td><td>✓ done</td></tr>
+<tr><td>5</td><td><a href="../module-05/slides.html">Global and local memory</a></td><td>✓ done</td></tr>
+<tr><td><b>6</b></td><td><b>Skills</b> <i>(you are here)</i></td><td>← current</td></tr>
+<tr><td>7</td><td><a href="../module-07/slides.html">Hooks</a></td><td>✓ done</td></tr>
+<tr><td>8</td><td><a href="../module-08/slides.html">Mods</a></td><td>✓ done</td></tr>
+</table>
+
+---
+
+# What a Skill Is
+
+A directory with a `SKILL.md`: frontmatter that says **when** to use it, then Markdown instructions, optionally scripts and reference files beside it.
+
+--
+
+The body loads only when invoked, by you (`/name`) or by Claude when the request matches the description.
+
+--
+
+That is why a skill is the right home for a **multi-step procedure**:
+
+- costs nothing until needed (module 4's lever)
+- can carry a script, run through its own directory
+- shareable through the repo, and installable as a plugin
+
+--
+
+Module 5 ended with "a procedure does not belong in memory." This is where it goes.
+
+---
+name: locations
+
+# Where Skills Live
+
+| Location | Path | Scope |
+|---|---|---|
+| **Personal** | `~/.claude/skills/<name>/SKILL.md` | every project on this machine |
+| **Project** | `.claude/skills/<name>/SKILL.md` | this repo, including cloud sessions |
+| Nested | `<subdir>/.claude/skills/<name>/` | sessions started in or below `<subdir>` |
+| Plugin | `<plugin>/skills/<name>/` | where the plugin is enabled; `/plugin:name` |
+| Enterprise | managed settings directory | every user in the organization |
+
+--
+
+Same name in several places: enterprise beats personal beats project. Plugin skills are namespaced and never collide.
+
+`.claude/commands/deploy.md` (the older custom command) still works and makes the same `/deploy`; skills add supporting files and invocation control. New work goes in skills.
+
+---
+name: anatomy
+
+# Anatomy
+
+```yaml
+---
+name: trip-report
+description: Produce the per-city trip report from data/trips.csv. Use when the
+  user says "trip report", "city summary", or asks how fares compare across cities.
+argument-hint: [city]
+allowed-tools: Bash(Rscript ${CLAUDE_SKILL_DIR}/scripts/report.R *)
+---
+
+Run `${CLAUDE_SKILL_DIR}/scripts/report.R $ARGUMENTS` and show the output.
+If no city was given, report all cities. Do not edit the script.
+```
+
+--
+
+Three lines do the work: `description` decides **whether** it loads, `allowed-tools` decides **what runs without a prompt**, and `${CLAUDE_SKILL_DIR}` makes the script path **portable** to wherever the skill is installed.
+
+---
+
+# The Fields That Control Invocation
+
+| Frontmatter | You can invoke | Claude can invoke | Use for |
+|---|---|---|---|
+| (default) | yes | yes | most procedures |
+| `disable-model-invocation: true` | yes | no | side effects you start by hand: deploy, push, send |
+| `user-invocable: false` | no | yes | background knowledge Claude applies unasked |
+
+--
+
+Also:
+
+- `allowed-tools`: runs without a permission prompt during the invoking turn; does not restrict other tools. `disallowed-tools` removes tools while active.
+- `context: fork` + `agent: Explore`: run in a subagent; output stays out of the main window.
+- `paths:`: globs that limit automatic loading to work on matching files.
+- `model`, `effort`, `hooks`: per-skill overrides.
+
+---
+name: arguments
+
+# Arguments and Substitutions
+
+| Placeholder | Expands to |
+|---|---|
+| `$ARGUMENTS` | everything typed after the name |
+| `$0`, `$1` | positional, 0-based |
+| `$city` | named, from an `arguments:` list in the frontmatter |
+| `${CLAUDE_SKILL_DIR}` | the skill's own directory (works in `allowed-tools` too) |
+| `${CLAUDE_PROJECT_DIR}` | the project root |
+
+--
+
+`/trip-report Denver` → `$ARGUMENTS` is `Denver`. Multi-word values need quotes. Arguments with no placeholder to land in are appended as `ARGUMENTS: ...`.
+
+--
+
+A <code>!&#96;command&#96;</code> line (an exclamation mark, then the command in backticks) runs **before** the content is sent and inserts its output: a `git status --short` at the top of a commit skill, say.
+
+--
+
+Supporting files: `SKILL.md` under 500 lines as the overview; `reference.md`, `examples.md`, `scripts/` beside it, opened only when the overview points at them.
+
+---
+name: decision
+
+# Skill, Memory, or Hook?
+
+| Need | Mechanism | Why |
+|---|---|---|
+| a fact or rule for every task | `CLAUDE.md` | always loaded; cheap if short |
+| a multi-step procedure for one kind of task | **skill** | on demand; carries scripts; shareable |
+| something that must happen whatever Claude decides | hook (module 7) | the harness runs it; the rest is advice |
+| a change to the interface or the harness | mod (module 8) | code, not instructions |
+
+--
+
+**Memory entry → skill** when it has numbered steps, names more than one command, or has outgrown a paragraph.
+
+**Skill → hook** when it begins "always" or "never" and the cost of Claude skipping it is high.
+
+---
+name: description
+
+# Writing a Description That Triggers
+
+Claude matches the request against descriptions. The listing truncates `description` + `when_to_use` at 1,536 characters, key use case first.
+
+--
+
+.pull-left[
+**Rarely fires**
+
+```yaml
+description: Slide verification helper.
+```
+]
+
+.pull-right[
+**Fires**
+
+```yaml
+description: Render a xaringan deck, print it
+  to PDF, rasterize pages and read them back
+  for overflow. Use when the user says "verify
+  the slides", "spot-check slide N", or after
+  any edit to a slides.Rmd. Not for the
+  interview-prep .md, which uses make.
+```
+]
+
+--
+
+Action and object first, then **the triggers as things the user actually says**, then exclusions if a sibling skill is close.
+
+Test both ways: `/name`, and a request phrased like a trigger without the name.
+
+---
+name: lifecycle
+
+# Lifecycle
+
+**1. Write it.** Creating `~/.claude/skills/<name>/SKILL.md` registers it **live** in the current session (observed 2026-07), sometimes a turn later. Smoke-test in the same conversation; if `Skill` says "unknown skill" once, follow the steps by hand.
+
+--
+
+**2. Smoke-test both invocations.** `/name arg`, then a natural request.
+
+--
+
+**3. Move the scripts in.** Anything run more than once goes in `scripts/`, called through `${CLAUDE_SKILL_DIR}`.
+
+--
+
+**4. Decide the scope.** Personal if it depends on this machine (sandbox paths, Ghostscript, `pbcopy`). Project if a collaborator or a cloud session needs it. An account-uploaded skill syncs down as `anthropic-skills:<name>`: upload only variants that do not exist locally, or you get two skills with one trigger.
+
+--
+
+**5. Share as a plugin** when others should install it: `.claude-plugin/plugin.json` beside `skills/`, listed in a `marketplace.json`; `/plugin install name --marketplace owner/repo`. Module 8 shows the layout.
+
+---
+
+# Three Skills in This Collection Worth Reading
+
+**`new-module`**: inputs to confirm in one batch, a pre-flight check against the spec with a **stop condition** ("if the module is not in the plan, surface it and stop"), explicit do-nots, a report format.
+
+--
+
+**`verify-slides`**: one chained bash call so the user sees one operation, then a **read-back checklist** (cut-off content, literal LaTeX, missing title) and a table of symptom → cause → fix. A procedure, not a command alias.
+
+--
+
+**`msr-lg`**: a trigger token that is itself the go-ahead ("do not ask whether to proceed"), a de-personalization rule for what gets written, and an offer of a handoff note at the end.
+
+--
+
+The pattern across all three: the skill encodes the **judgment** around the commands, not just the commands.
+
+---
+
+# Summary
+
+| Do | Because |
+|---|---|
+| Put procedures in skills, facts in `CLAUDE.md` | on-demand loading; memory is paid every request |
+| Write triggers as quoted user phrases | Claude matches the request against the description |
+| Call scripts through `${CLAUDE_SKILL_DIR}` | portable across personal, project and plugin scope |
+| `allowed-tools` for the one command the skill runs | no permission prompt for the expected call, nothing else widened |
+| `disable-model-invocation` for side effects | deploy, push, send start by hand |
+| Smoke-test by name and by phrase, same session | it registers live |
+| Project scope for anything a cloud session needs | the cloud never sees `~/.claude` |
+
+--
+
+The drill writes `trip-report` with a bundled script and exercises every row, ending by moving it to project scope.

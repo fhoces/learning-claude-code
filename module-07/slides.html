@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Module 7: Hooks</title>
+    <meta charset="utf-8" />
+    <script src="slides_files/header-attrs-2.29/header-attrs.js"></script>
+    <link href="slides_files/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link href="slides_files/remark-css-0.0.1/default-fonts.css" rel="stylesheet" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# Module 7: Hooks
+]
+.subtitle[
+## Events, matchers, exit codes, JSON decisions; enforcement that memory cannot give
+]
+
+---
+
+
+&lt;style type="text/css"&gt;
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small .remark-code, .small table { font-size: 70%; }
+.small { font-size: 80%; }
+.nav-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 40px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn:hover { background: #c5cae9; }
+.nav-btn-br {
+  position: absolute;
+  bottom: 12px;
+  right: 70px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn-br:hover { background: #c5cae9; }
+.inline-btn {
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-decoration: none;
+  color: #1a237e;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.inline-btn:hover { background: #c5cae9; }
+&lt;/style&gt;
+
+
+
+# Course Map
+
+&lt;table&gt;
+&lt;tr&gt;&lt;th&gt;#&lt;/th&gt;&lt;th&gt;Module&lt;/th&gt;&lt;th&gt;Status&lt;/th&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;1&lt;/td&gt;&lt;td&gt;&lt;a href="../module-01/slides.html"&gt;Version control as the safety net&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;2&lt;/td&gt;&lt;td&gt;&lt;a href="../module-02/slides.html"&gt;Markdown as the interface&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;3&lt;/td&gt;&lt;td&gt;&lt;a href="../module-03/slides.html"&gt;Verification plans&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;4&lt;/td&gt;&lt;td&gt;&lt;a href="../module-04/slides.html"&gt;Token management&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;5&lt;/td&gt;&lt;td&gt;&lt;a href="../module-05/slides.html"&gt;Global and local memory&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;&lt;a href="../module-06/slides.html"&gt;Skills&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;b&gt;7&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;b&gt;Hooks&lt;/b&gt; &lt;i&gt;(you are here)&lt;/i&gt;&lt;/td&gt;&lt;td&gt;← current&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;8&lt;/td&gt;&lt;td&gt;&lt;a href="../module-08/slides.html"&gt;Mods&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;
+
+---
+name: why-hooks
+
+# Memory Is Advice. A Hook Is Enforcement.
+
+Modules 2, 5 and 6 are all **context**: instructions the model weighs.
+
+--
+
+From the memory docs:
+
+&gt; Claude treats them as context, not enforced configuration. To block an action regardless of what Claude decides, use a `PreToolUse` hook.
+
+--
+
+The signal that a rule should move from memory to a hook: it begins with **always** or **never**, and one slip is expensive.
+
+- never edit `data/trips.csv` (it is generated)
+- never push without the flag file
+- always lint after an R edit
+
+--
+
+Second reason, from module 4: a hook can **rewrite a command before it runs**, so noisy output reaches the model already filtered.
+
+---
+name: events
+
+# The Events That Matter Daily
+
+| Event | Fires | Can block |
+|---|---|---|
+| `SessionStart` | session begins or resumes | no; stdout → context |
+| `UserPromptSubmit` | prompt submitted, before Claude sees it | yes |
+| **`PreToolUse`** | before a tool call runs | **yes** |
+| `PostToolUse` | after a tool call succeeds | no; stderr → Claude |
+| `PostToolUseFailure` | after a tool call fails | no |
+| `Stop` | Claude finishes responding | yes (send it back to work) |
+| `SubagentStart` / `SubagentStop` | a subagent spawns / finishes | no |
+| `PreCompact` / `PostCompact` | around compaction | no |
+| `SessionEnd` | session terminates | no |
+
+--
+
+Over thirty exist (permission requests, model switches, worktrees, config and file changes, MCP elicitation). These ten cover a research workflow.
+
+---
+name: config
+
+# Configuration: Event, Matcher Group, Handlers
+
+`.claude/settings.json` (project, shared), `~/.claude/settings.json` (user), `.claude/settings.local.json` (private), a plugin's `hooks/hooks.json`, or a skill's frontmatter.
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Edit|Write",
+        "hooks": [
+          { "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/protect-data.sh",
+            "timeout": 10 }
+        ] }
+    ]
+  }
+}
+```
+
+--
+
+- `matcher`: against `tool_name`. Plain names and `|` are exact; any other character makes it a regex. Omitted or `"*"` matches all.
+- `if`: a permission rule (`"Bash(git push *)"`) filtering tool events further.
+- `type`: `command`, `prompt`, `agent`, `http`, `mcp_tool`. `async: true` runs without blocking.
+
+`/hooks` shows what is registered and from where.
+
+---
+name: io
+
+# Input on stdin, Decision on stdout, Reason on stderr
+
+The hook reads one JSON object:
+
+```json
+{ "session_id": "abc", "cwd": "/Users/me/claude-code-practice",
+  "hook_event_name": "PreToolUse", "permission_mode": "default",
+  "tool_name": "Edit", "tool_input": { "file_path": "data/trips.csv", ... },
+  "tool_use_id": "toolu_01..." }
+```
+
+--
+
+`jq -r '.tool_input.file_path'` for an edit; `.tool_input.command` for Bash.
+
+--
+
+| Exit | Meaning |
+|---|---|
+| **0** | proceed. JSON on stdout = a decision; plain stdout → context on `SessionStart` / `UserPromptSubmit`, debug log elsewhere |
+| **2** | **block**, stderr is the reason Claude sees. On `PostToolUse` the tool already ran: stderr is feedback |
+| other | non-blocking error; proceeds; first stderr line in the transcript. **Exit 1 does not block** |
+
+---
+
+# JSON Decisions for Finer Control
+
+Exit 0 and print:
+
+```json
+{ "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "data/trips.csv is generated; edit build_data.R instead" } }
+```
+
+--
+
+- `permissionDecision`: `allow`, `deny`, `ask`, `defer`
+- `updatedInput`: rewrite the tool's arguments before it runs (the prefilter)
+- `additionalContext`: inject text as a system reminder
+
+--
+
+Other events use a top-level `{ "decision": "block", "reason": "..." }`. Universal: `{ "continue": false, "stopReason": "..." }` stops Claude entirely.
+
+---
+name: pattern-protect
+
+# Pattern 1: Protect a File
+
+```bash
+#!/bin/bash
+input=$(cat)
+path=$(echo "$input" | jq -r '.tool_input.file_path // empty')
+case "$path" in
+  */data/trips.csv|data/trips.csv)
+    echo "data/trips.csv is generated by data/build_data.R; edit the generator." &gt;&amp;2
+    exit 2 ;;
+esac
+exit 0
+```
+
+--
+
+Test it **by hand** before registering:
+
+```bash
+jq -n '{tool_input:{file_path:"data/trips.csv"}}' | .claude/hooks/protect-data.sh; echo "exit $?"
+```
+
+Expected: the message, `exit 2`. Then a safe path: silent, `exit 0`.
+
+--
+
+Registered on `PreToolUse` with matcher `Edit|Write`, the edit never happens and Claude reads the reason.
+
+---
+name: pattern-gate
+
+# Pattern 2: Gate the Push on a Flag File
+
+Module 1's rule ("the push is its own approval step"), enforced:
+
+```bash
+#!/bin/bash
+if [ -f .push-ok ]; then rm -f .push-ok; exit 0; fi
+echo "No .push-ok flag. Run 'touch .push-ok' yourself to approve one push." &gt;&amp;2
+exit 2
+```
+
+```json
+{ "matcher": "Bash",
+  "hooks": [ { "type": "command", "if": "Bash(git push *)",
+               "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/gate-push.sh" } ] }
+```
+
+--
+
+The `if` rule means the script only runs for pushes. One `touch .push-ok` by you approves exactly one push; the hook consumes the flag.
+
+---
+
+# Patterns 3 to 5: Lint, Prefilter, Inject
+
+**Lint after an R edit.** `PostToolUse` on `Edit|Write`; if the path ends in `.R`, run `lintr::lint()`; non-empty output on stderr with exit 2 makes Claude see it and fix it.
+
+--
+
+**Prefilter.** `PreToolUse` on `Bash`; if the command is a test runner, return `updatedInput` with `... 2&gt;&amp;1 | grep -A5 FAIL | head -100`. Hundreds of tokens instead of tens of thousands (module 4).
+
+--
+
+**Inject at session start.** `SessionStart`, no matcher:
+
+```bash
+echo "Branch: $(git branch --show-current). Last commit: $(git log -1 --format=%s)."
+[ -f NEXT_SESSION.md ] &amp;&amp; cat NEXT_SESSION.md
+```
+
+Plain stdout lands in context. The handoff note from module 2 reads itself.
+
+--
+
+**Send it back to work.** `Stop`; run the tests; on failure `{ "decision": "block", "reason": "..." }`. Careful: blocking on something the model cannot fix makes a loop.
+
+---
+name: debugging
+
+# Debugging a Hook That Does Nothing
+
+- **`/hooks`**: is it registered, and from which file?
+- **`chmod +x`** and a valid interpreter line. A hook that fails to start is a *non-blocking* error: one dim transcript line you will miss.
+- **`claude --debug`** or `--debug-file /tmp/hooks.log`: every run, its exit code, and for a rewrite the "modified tool input keys" line.
+- **Pipe JSON in by hand** with `jq -n` and check exit code and stderr before blaming the harness.
+- **Settings precedence**: a project hook and a user hook on the same event both run.
+
+--
+
+Trust: a hook in a repo's `.claude/settings.json` runs on your machine once you trust the workspace. **Read a repo's hooks before trusting it.**
+
+---
+
+# Summary
+
+| Need | Event | Matcher / `if` | Returns |
+|---|---|---|---|
+| never edit the generated CSV | `PreToolUse` | `Edit` or `Write` | exit 2 + stderr |
+| one approved push at a time | `PreToolUse` | `Bash` + `if: Bash(git push *)` | exit 2 unless flag |
+| lint every R edit | `PostToolUse` | `Edit` or `Write` | exit 2 + lint on stderr |
+| filter a test run | `PreToolUse` | `Bash` | JSON `updatedInput` |
+| read the handoff note | `SessionStart` | none | plain stdout |
+| don't stop until tests pass | `Stop` | none | `{decision: block}` |
+
+--
+
+The drill writes the first five, triggers each from a live session, tests one by hand with piped JSON, and breaks one on purpose to see what a silent failure looks like.
+
+Next: when a hook is not enough because the change is to the **interface** itself, that is a mod.
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

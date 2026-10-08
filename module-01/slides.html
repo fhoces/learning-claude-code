@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Module 1: Version Control as the Safety Net</title>
+    <meta charset="utf-8" />
+    <script src="slides_files/header-attrs-2.29/header-attrs.js"></script>
+    <link href="slides_files/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link href="slides_files/remark-css-0.0.1/default-fonts.css" rel="stylesheet" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# Module 1: Version Control as the Safety Net
+]
+.subtitle[
+## Commits, diffs, worktrees, recovery, push gating, concurrent sessions
+]
+
+---
+
+
+&lt;style type="text/css"&gt;
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small .remark-code, .small table { font-size: 70%; }
+.small { font-size: 80%; }
+.nav-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 40px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn:hover { background: #c5cae9; }
+.nav-btn-br {
+  position: absolute;
+  bottom: 12px;
+  right: 70px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn-br:hover { background: #c5cae9; }
+.inline-btn {
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-decoration: none;
+  color: #1a237e;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.inline-btn:hover { background: #c5cae9; }
+&lt;/style&gt;
+
+
+
+# Course Map
+
+&lt;table&gt;
+&lt;tr&gt;&lt;th&gt;#&lt;/th&gt;&lt;th&gt;Module&lt;/th&gt;&lt;th&gt;Status&lt;/th&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;&lt;b&gt;1&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;b&gt;Version control as the safety net&lt;/b&gt; &lt;i&gt;(you are here)&lt;/i&gt;&lt;/td&gt;&lt;td&gt;← current&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;2&lt;/td&gt;&lt;td&gt;&lt;a href="../module-02/slides.html"&gt;Markdown as the interface&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;3&lt;/td&gt;&lt;td&gt;&lt;a href="../module-03/slides.html"&gt;Verification plans&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;4&lt;/td&gt;&lt;td&gt;&lt;a href="../module-04/slides.html"&gt;Token management&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;5&lt;/td&gt;&lt;td&gt;&lt;a href="../module-05/slides.html"&gt;Global and local memory&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;&lt;a href="../module-06/slides.html"&gt;Skills&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;7&lt;/td&gt;&lt;td&gt;&lt;a href="../module-07/slides.html"&gt;Hooks&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;8&lt;/td&gt;&lt;td&gt;&lt;a href="../module-08/slides.html"&gt;Mods&lt;/a&gt;&lt;/td&gt;&lt;td&gt;✓ done&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;
+
+---
+
+# Before We Start: Setup
+
+**Step 1.** Build the practice repo (once, in your terminal):
+
+```bash
+cd &lt;where you cloned learning-claude-code&gt;
+mkdir -p ~/claude-code-practice &amp;&amp; cp -r data ~/claude-code-practice/
+cd ~/claude-code-practice
+git init -q &amp;&amp; git add data/build_data.R data/trip_metrics.R
+git commit -qm "Practice repo: trip data generator and metrics script"
+Rscript data/build_data.R
+```
+
+--
+
+**Step 2.** Every later module's drill edits this repo through Claude Code. `data/trips.csv` is generated, so it goes in `.gitignore`, not in a commit.
+
+--
+
+**Step 3.** This deck has no live code. Everything shown is a terminal transcript or a file. When a slide and your `claude --version` disagree, trust the tool and the docs.
+
+---
+
+# Why Git Changes When the Editor Is an Agent
+
+Three things are different from a human at the keyboard:
+
+--
+
+**Volume.** One turn can touch twenty files. The diff is the only artifact that scales. The chat summary does not.
+
+--
+
+**Confidence.** The report of completion reads the same whether the change is right or wrong. A diff has no tone.
+
+--
+
+**Overlap.** Two sessions, a subagent, a scheduled task can all be in the working tree at once. Git is the one shared state they all respect.
+
+--
+
+&gt; **The rule for the module:** read the diff, not the summary.
+
+---
+
+# Two Undo Buttons, Different Jobs
+
+.pull-left[
+**Claude Code checkpoints**
+
+`/rewind` (or double Escape) restores the conversation *and* the files to an earlier point in the session.
+
+Right for: "undo the last ten minutes."
+
+Per session. Invisible to collaborators. Gone with the session.
+]
+
+.pull-right[
+**Git**
+
+`git reset`, `git checkout -- FILE`, `git revert`.
+
+Right for: anything another person or another session needs to see, and anything that must survive `/clear`.
+
+Shared. Durable. Reviewable.
+]
+
+--
+
+Use both. A checkpoint is the fast local undo; a commit is the statement "this is done and reviewed."
+
+---
+name: who-commits
+
+# Who Commits, and When
+
+The convention in this collection's `CLAUDE.md` files:
+
+&gt; Commit or push only when the user asks. If on the default branch, branch first.
+
+--
+
+Why the agent should not decide on its own:
+
+- A commit says "done and reviewed." The agent cannot review its own work from outside.
+- A push to a public default branch publishes everything in the commit, including files swept in by accident.
+
+--
+
+What to ask for: **one task, one commit**, a message that says what and why, and the attribution trailer the harness adds:
+
+```
+Add median_fare to the per-city summary
+
+Co-Authored-By: Claude &lt;noreply@anthropic.com&gt;
+```
+
+The trailer is how a later reader finds the agent-written commits and reads them with extra care.
+
+---
+
+# Reading What the Agent Did
+
+Three commands before trusting any "done":
+
+```bash
+git status --short          # modified vs untracked
+git diff --stat             # which files, how much
+git diff -- path/to/file    # the actual change
+```
+
+--
+
+After a commit:
+
+```bash
+git show --stat HEAD
+git log --oneline -5
+```
+
+--
+
+What to look for: a diff **larger than the request**, or touching a file the request **did not mention**. That is the first sign of scope creep, and it is cheaper to ask "why this file?" before the commit than after.
+
+---
+
+# Two Diffs That Are Not Regressions
+
+**The rendered-output diff.** A Quarto or R Markdown re-render leaves a file "modified" whose whole diff is execution-count noise or a PDF timestamp.
+
+```bash
+git diff report.html | grep -v execution_count   # prints nothing?
+git checkout -- report.html                       # then discard it
+```
+
+--
+
+**The commit you do not remember.** Different session URL or co-author model in the trailer: it belongs to another session.
+
+```bash
+git show --stat &lt;sha&gt;       # look before building on it
+```
+
+Leave it as its own commit. The owning session may still be working from it.
+
+---
+name: worktrees-main
+
+# Branches and Worktrees for Agents
+
+A subagent launched with `isolation: "worktree"`, or a session started with `claude --worktree`, gets its own checkout under `.claude/worktrees/` on its own branch.
+
+--
+
+The main tree stays clean. The agent's work arrives as a branch to merge, which means a diff you can read in one place.
+
+--
+
+The brief that works for a worktree agent:
+
+- `git -C &lt;absolute main path&gt;` for anything that must land in the main checkout
+- absolute paths for every write
+- "run `git merge --ff-only main` first and confirm commit `&lt;sha&gt;` is present; stop if it is not"
+
+&lt;a href="#worktrees-gotchas" class="nav-btn"&gt;three observed gotchas →&lt;/a&gt;
+
+---
+
+# What the Agent Cannot Do in Git
+
+Anything interactive is unavailable in the harness:
+
+```bash
+git rebase -i        # no
+git add -i           # no
+git add -p           # no
+```
+
+Consequence: there is **no one-line way to reword a commit that is not HEAD**. The agent will reach for the closest thing it has, and the closest thing is wrong.
+
+---
+name: amend-main
+
+# The Amend Trap
+
+Asked to fix the *message* of a commit three back, the agent runs `git commit --amend`.
+
+--
+
+`--amend` only ever touches `HEAD`. So:
+
+- `HEAD`'s message is overwritten with text meant for the older commit
+- `HEAD`'s own correct message is gone
+- the tree is untouched, so `git log --stat` still looks plausible
+
+--
+
+Nothing errors. The only tell is reading `git log --oneline -5` and noticing the messages moved.
+
+&lt;a href="#amend-recovery" class="nav-btn"&gt;the recovery recipe →&lt;/a&gt;
+
+---
+
+# The `git add -A` Trap
+
+In a half-authored folder, `git add -A` stages everything: the scripts you wrote, the PDFs you downloaded, the data someone sent you.
+
+--
+
+With `gh repo create --public --push` on the same line, all of it is published.
+
+--
+
+Habit, before the first commit of any directory or any public push:
+
+```bash
+git status --short      # scan for files you did NOT author
+```
+
+Add intentionally. Gitignore the rest.
+
+--
+
+If it happens anyway: `gh repo edit OWNER/REPO --visibility private --accept-visibility-change-consequences` is instant and non-destructive. Whether to purge history is a separate decision.
+
+---
+
+# The Half-Run Chain
+
+```bash
+python3 - &lt;&lt;'PY'
+...a patch that asserts something...
+PY
+git add file.tex &amp;&amp; git commit -m "Patched"
+```
+
+A newline between commands is `;`, not `&amp;&amp;`. The assertion fails, the patch does not apply, **the commit still happens** without the patched file.
+
+--
+
+Two fixes:
+
+- `&amp;&amp; git add` right after the heredoc's closing line
+- or: mutation in one call, commit in the next, after reading the diff
+
+Same family: a diagnostic `grep` that exits 1 on no match, placed first in an `&amp;&amp;` chain, silently skips the patch chained after it.
+
+---
+name: push-gating
+
+# Push Gating
+
+Observed (2026-07): in auto mode, the permission classifier **denies `git push` to a public repo's default branch** when the user did not ask for a push in the current session. Full QA done, session authored the commits: still denied. Cleanly.
+
+--
+
+It also blocks history rewrites (`git filter-repo` plus a force push) even right after a "yes, do it."
+
+--
+
+Design for it instead of around it:
+
+- the push is its own approval step: "say push and I'll retry"
+- subagents commit, never push
+- `git fetch` first, because a parallel session may have moved `origin`
+
+---
+
+# Concurrent Sessions on One Repo
+
+Two terminal tabs, a cloud session, a scheduled task: more than one session can be in the tree at once.
+
+--
+
+The tells:
+
+- uncommitted changes in a repo that should be clean
+- a commit you do not remember, with a different session URL in the trailer
+- a push whose `FROM..TO` range does not start at the SHA you pushed last
+
+--
+
+The habits:
+
+```bash
+git log --oneline -5                 # before non-trivial work
+git show --stat &lt;unfamiliar-sha&gt;     # before building on it
+git fetch                            # before asserting ahead/behind
+git pull --rebase --autostash        # when origin moved and you have local edits
+```
+
+If it keeps happening, closing the duplicate session is the fix.
+
+---
+
+# Summary: The Habits
+
+| When | Do |
+|---|---|
+| Before any work | `git log --oneline -5`; look for commits you did not make |
+| Before trusting "done" | `git status --short`, `git diff --stat`, read the diff |
+| Before the first commit of a folder | `git status --short`; add per file, never `-A` blind |
+| Asking for a commit | one task, one commit, trailer at the end |
+| Rewording an old commit | tag, reset, cherry-pick replay, `git diff tag..HEAD` empty |
+| Pushing | explicit step; `git fetch` first; subagents never push |
+| Worktree agents | `git -C &lt;main&gt;`, absolute paths, `merge --ff-only main` first |
+
+--
+
+The drill does Q1 to Q6 of this table on the practice repo, including breaking and recovering history.
+
+---
+class: center, middle, inverse
+
+# Backup Slides
+
+---
+name: amend-recovery
+
+# Backup: Recovering From the Amend Trap
+
+.small[
+Only safe **before a push**; after, this rewrites shared history.
+
+```bash
+git tag safety-net HEAD                       # 1. safety net
+git log --oneline -6                          # 2. find the commit BEFORE the bad one
+git reset --hard &lt;commit-before-bad&gt;          # 3. rewind the branch (tree is safe in the tag)
+git cherry-pick --no-commit &lt;bad-sha&gt;         # 4. replay the one to reword...
+git commit -F - &lt;&lt;'MSG'
+Corrected message here
+
+Co-Authored-By: Claude &lt;noreply@anthropic.com&gt;
+MSG
+git cherry-pick &lt;sha2&gt; &lt;sha3&gt; &lt;sha4&gt;          # 5. ...and the rest with their own messages
+git diff safety-net..HEAD                     # 6. MUST print nothing
+git tag -d safety-net                         # 7. only then drop the net
+```
+
+Step 6 is the verification: an empty diff proves the trees are identical and only messages moved. If it is not empty, `git reset --hard safety-net` and start over.
+]
+
+&lt;a href="#amend-main" class="nav-btn-br"&gt;← back&lt;/a&gt;
+
+---
+name: worktrees-gotchas
+
+# Backup: Three Worktree Gotchas (observed 2026-09)
+
+.small[
+**1. Worktrees are created from `origin/main`, not local `main`.** An unpushed merge is missing from the agent's tree. Brief the agent to `git merge --ff-only main` first and to confirm a named commit exists; if the agent stops without changes, the harness deletes its worktree and branch, so a resumed agent must recreate them.
+
+**2. The main session's cwd can follow the worktree.** While a worktree agent runs or is resumed, the harness may switch the main session's primary working directory to the worktree. A second agent spawned then works in the worktree too, even if its brief names the main checkout. A plain `cd` in a main-session Bash call does the same. Use `git -C &lt;abs path&gt;`, absolute write paths, or a subshell `(cd dir &amp;&amp; ...)`.
+
+**3. Gitignored data inside a worktree dies with it.** One run extracted 4 GB of ignored data inside a worktree; `git worktree remove` would have deleted it. Move out anything ignored that must survive before removing.
+
+Also: several agent branches that each add a `.gitignore` exception conflict on the same lines every merge. Resolve by keeping every side's line.
+]
+
+&lt;a href="#worktrees-main" class="nav-btn-br"&gt;← back&lt;/a&gt;
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

@@ -1,0 +1,299 @@
+---
+title: "Module 4: Token Management"
+subtitle: "What fills context, what the cache saves, the levers that cut spend"
+output:
+  xaringan::moon_reader:
+    css: [default, default-fonts]
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: "16:9"
+---
+
+```{css, echo=FALSE}
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small .remark-code, .small table { font-size: 70%; }
+.small { font-size: 80%; }
+.nav-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 40px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn:hover { background: #c5cae9; }
+.nav-btn-br {
+  position: absolute;
+  bottom: 12px;
+  right: 70px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn-br:hover { background: #c5cae9; }
+.inline-btn {
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-decoration: none;
+  color: #1a237e;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.inline-btn:hover { background: #c5cae9; }
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, fig.align = "center",
+  fig.width = 10, fig.height = 4.5, dpi = 150,
+  message = FALSE, warning = FALSE
+)
+library(tidyverse)
+theme_set(theme_minimal(base_size = 14))
+```
+
+# Course Map
+
+<table>
+<tr><th>#</th><th>Module</th><th>Status</th></tr>
+<tr><td>1</td><td><a href="../module-01/slides.html">Version control as the safety net</a></td><td>✓ done</td></tr>
+<tr><td>2</td><td><a href="../module-02/slides.html">Markdown as the interface</a></td><td>✓ done</td></tr>
+<tr><td>3</td><td><a href="../module-03/slides.html">Verification plans</a></td><td>✓ done</td></tr>
+<tr><td><b>4</b></td><td><b>Token management</b> <i>(you are here)</i></td><td>← current</td></tr>
+<tr><td>5</td><td><a href="../module-05/slides.html">Global and local memory</a></td><td>✓ done</td></tr>
+<tr><td>6</td><td><a href="../module-06/slides.html">Skills</a></td><td>✓ done</td></tr>
+<tr><td>7</td><td><a href="../module-07/slides.html">Hooks</a></td><td>✓ done</td></tr>
+<tr><td>8</td><td><a href="../module-08/slides.html">Mods</a></td><td>✓ done</td></tr>
+</table>
+
+---
+name: cost-model
+
+# Three Facts That Explain Every Surprise
+
+**1. The conversation is resent on every request.** Every tool call batch is another request carrying everything so far. A one-line question in a session open all day carries the day.
+
+--
+
+**2. The cache makes resending cheaper, not free.** Cached input bills at a fraction of full rate while the prefix is unchanged and warm. Lifetime: an hour on a subscription, five minutes on an API key or once usage credits are drawn on.
+
+--
+
+**3. Anything that changes the prefix invalidates it.** A tool definition appearing, a model switch, a compaction. `/usage` names the likely cause of the last miss.
+
+--
+
+Consequences: idle sessions still spend (a scheduled task sends the full context when it fires); the first message after lunch is a cache rebuild; `/compact` on a big context is itself a big request.
+
+---
+
+# What Fills the Window
+
+Run `/context`. In a typical research session, largest first:
+
+--
+
+- **Tool output.** A `cat` of a 3,000-line log; a `git diff` of rendered HTML; a full test run. It lands and stays until compaction.
+- **File reads.** The whole file when one function was needed. The same file twice after an edit.
+- **Instruction files.** Every `CLAUDE.md` level plus imports plus the auto-memory index. Paid on every request: why module 2 set a 200-line budget.
+- **Tool definitions.** MCP schemas are now deferred (names only until used); a CLI like `gh` costs even less because it lists nothing.
+- **Thinking.** Billed as output. Tens of thousands of tokens per request on hard work; `/effort` lowers it when the task is simple.
+
+---
+
+# Seeing the Numbers
+
+```
+/usage
+Total cost:            $0.55
+Usage by model:
+   claude-sonnet-4-6:  1.2k input, 5.3k output, 940.0k cache read, 50.0k cache write
+Prompt cache (main):   14 requests · 91% of input tokens from cache · 2 misses
+                       (last 6m ago, 310.2k tokens re-cached) · warm (1h TTL)
+```
+
+--
+
+Read the cache line: **share from cache** is the health number; **misses** with a cause tell you what broke the prefix; **warm or cold** tells you whether the next message pays full rate.
+
+--
+
+- `/context`: what is in the window now
+- status line: context use, continuously, once configured
+- `/usage` on a subscription: plan bars plus attribution by skill, subagent, plugin, MCP server
+- `/insights`: friction patterns across sessions, not tokens
+
+---
+name: levers-1
+
+# Lever 1: Clear, Lever 2: Compact
+
+**`/clear`** starts at zero. `/rename` first so `/resume` can find the old one. Stale context is paid on every later message: "one more question" in a six-hour session is not one more question.
+
+--
+
+**`/compact <instruction>`** tells the summarizer what to keep:
+
+```
+/compact Keep the PLAN.md table and the last metrics output verbatim; drop the rest.
+```
+
+Make it the default in `CLAUDE.md`:
+
+```markdown
+# Compact instructions
+When compacting, keep verification tables and the last test output verbatim.
+```
+
+--
+
+Compaction reads the whole conversation. Cheaper at 40% than at 90%; cheaper still to clear when continuity is not needed.
+
+---
+name: levers-2
+
+# Lever 3: Delegate the Verbose Work
+
+A subagent's tool output stays in **its** context. Only the summary returns.
+
+--
+
+Send out: a test suite, a documentation read, a log search, a 20-file survey where you need the conclusion and not the dumps.
+
+--
+
+Two honest caveats:
+
+- the subagent's requests still count; pick a smaller model for simple work
+- the handoff drops detail both ways: the brief is all it knows, the summary is all you get back
+
+--
+
+And sometimes the right answer is no agent at all:
+
+```bash
+awk -F, 'NR>1 && $9==5' data/trips.csv | wc -l     # not "read the CSV and count"
+```
+
+---
+
+# Lever 4: Prefilter With a Hook
+
+A `PreToolUse` hook rewrites the command before it runs:
+
+```bash
+# ~/.claude/hooks/filter-test-output.sh
+input=$(cat)
+cmd=$(echo "$input" | jq -r '.tool_input.command')
+if [[ "$cmd" =~ ^(npm test|pytest|Rscript -e \"testthat) ]]; then
+  echo "$input" | jq --arg f "$cmd 2>&1 | grep -A5 -E 'FAIL|Error' | head -100" \
+    '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"allow",
+      updatedInput:(.tool_input + {command:$f})}}'
+else echo "{}"; fi
+```
+
+--
+
+Hundreds of tokens of failures instead of tens of thousands of passes. Module 7 builds and tests it.
+
+---
+
+# Levers 5 to 8: Smaller Defaults
+
+**Procedures out of `CLAUDE.md`, into skills.** A skill's body loads only when invoked (module 6). The 200-line file plus on-demand playbooks is this lever applied.
+
+--
+
+**Specific prompts.** "Improve this codebase" scans. "Add the exclusion rule from `SPEC.md` to `data/trip_metrics.R`" reads two files.
+
+--
+
+**Plan mode for anything large.** Shift+Tab; explore and propose before editing. Re-work after a wrong direction is the most expensive token there is. Escape stops a turn; `/rewind` restores a checkpoint.
+
+--
+
+**Model and effort to the task.** Sonnet for most coding, Opus for architecture. A switch to Opus also moves the subagents that inherit the session model.
+
+---
+name: parallel
+
+# Parallel Agents: The Honest Arithmetic
+
+Each agent carries its own context: instruction files, its brief, its own tool output.
+
+Four agents on a task ≈ **four single passes plus coordination**, and two lossy handoffs per agent.
+
+--
+
+The rule in this collection's instructions: when asked to parallelize, **first say whether it is worth it**.
+
+.pull-left[
+**Worth it**
+
+- large independent sweeps (one agent per artifact, shared spec)
+- adversarial verification (fresh agent re-derives the numbers)
+- work that must not block the main thread
+]
+
+.pull-right[
+**Not worth it**
+
+- small or tightly coupled changes
+- a check you could run inline in a few calls
+- a review that would anchor on your conclusion anyway
+]
+
+--
+
+Agent teams (several full instances in plan mode): about seven times a normal session. Keep them for work that is actually parallel.
+
+---
+
+# An Agent Death Looks Like a Completion
+
+A background agent's "completed" notification can be a session-limit death:
+
+```
+result: "You've hit your session limit"     tokens: ~0     tool uses: 3
+```
+
+--
+
+A real agent burns 100k+ tokens. **Glance at the usage block before acting on any result.**
+
+--
+
+After the reset: `SendMessage` to the agent's id resumes it **with its transcript**. Tell it to read `git diff` first (recover uncommitted edits) and to commit per chunk, so the next interruption loses less.
+
+It can also die mid-task ("failed", real token usage). Same recovery.
+
+---
+
+# Summary
+
+| Symptom | Lever |
+|---|---|
+| Session open all day, every message slow and costly | `/rename`, `/clear` |
+| Window near full, continuity needed | `/compact <what to keep>`; default it in `CLAUDE.md` |
+| A test run or log read dumped 20k tokens | subagent, or a prefilter hook, or `awk` |
+| `CLAUDE.md` over 200 lines | playbooks to on-demand files; procedures to skills |
+| Cache misses in `/usage` | find the cause: tool definitions, model switch, long idle |
+| "Parallelize this" | say whether it is worth it, then launch only if it is |
+| Agent "completed" with near-zero tokens | it died; resume it after the reset |
+
+--
+
+The drill measures `/context` around a full CSV read, redoes it through a subagent and through `awk`, sets a compaction default, and writes the parallelization opinion for module 2's brief.

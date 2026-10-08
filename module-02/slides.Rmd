@@ -1,0 +1,345 @@
+---
+title: "Module 2: Markdown as the Interface"
+subtitle: "CLAUDE.md, specs, briefs, and the docs Claude writes back"
+output:
+  xaringan::moon_reader:
+    css: [default, default-fonts]
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: "16:9"
+---
+
+```{css, echo=FALSE}
+.remark-code, .remark-inline-code { font-size: 80%; }
+.remark-slide-content { padding: 1em 2em; }
+.small .remark-code, .small table { font-size: 70%; }
+.small { font-size: 80%; }
+.nav-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 40px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn:hover { background: #c5cae9; }
+.nav-btn-br {
+  position: absolute;
+  bottom: 12px;
+  right: 70px;
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  z-index: 100;
+  text-decoration: none;
+  color: #1a237e;
+}
+.nav-btn-br:hover { background: #c5cae9; }
+.inline-btn {
+  font-size: 11px;
+  background: #e8eaf6;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-decoration: none;
+  color: #1a237e;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.inline-btn:hover { background: #c5cae9; }
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, fig.align = "center",
+  fig.width = 10, fig.height = 4.5, dpi = 150,
+  message = FALSE, warning = FALSE
+)
+library(tidyverse)
+theme_set(theme_minimal(base_size = 14))
+```
+
+# Course Map
+
+<table>
+<tr><th>#</th><th>Module</th><th>Status</th></tr>
+<tr><td>1</td><td><a href="../module-01/slides.html">Version control as the safety net</a></td><td>✓ done</td></tr>
+<tr><td><b>2</b></td><td><b>Markdown as the interface</b> <i>(you are here)</i></td><td>← current</td></tr>
+<tr><td>3</td><td><a href="../module-03/slides.html">Verification plans</a></td><td>✓ done</td></tr>
+<tr><td>4</td><td><a href="../module-04/slides.html">Token management</a></td><td>✓ done</td></tr>
+<tr><td>5</td><td><a href="../module-05/slides.html">Global and local memory</a></td><td>✓ done</td></tr>
+<tr><td>6</td><td><a href="../module-06/slides.html">Skills</a></td><td>✓ done</td></tr>
+<tr><td>7</td><td><a href="../module-07/slides.html">Hooks</a></td><td>✓ done</td></tr>
+<tr><td>8</td><td><a href="../module-08/slides.html">Mods</a></td><td>✓ done</td></tr>
+</table>
+
+---
+
+# Markdown Runs Both Ways
+
+.pull-left[
+**What you write for Claude**
+
+- `CLAUDE.md` and `.claude/rules/`
+- a spec (`learning-plan.md`, `SPEC.md`)
+- a brief for an agent or a peer session
+- a skill (`SKILL.md`, module 6)
+]
+
+.pull-right[
+**What Claude writes for you**
+
+- `README.md`, `concepts.md`
+- plans and handoff notes
+- findings reports from verifier agents
+- commit messages
+]
+
+--
+
+Both directions have the same failure: a document that **reads well and is wrong**. The module is about writing that cannot drift and checks that catch it when it does.
+
+---
+name: facts-not-procedures
+
+# Instruction Files: Facts, Not Procedures
+
+What the docs say, and what experience confirms, about `CLAUDE.md`:
+
+--
+
+**Facts.** Build commands, conventions, layout, "always do X." A multi-step procedure that matters for one kind of task goes in a skill or a path-scoped rule, loaded only when needed.
+
+--
+
+**Under 200 lines.** Every line is paid for on every request, and adherence drops as the file grows. `@imports` organize a long file; they do not make it cheaper. Imported files load at launch too.
+
+--
+
+**Consistent.** Two contradicting lines let the model pick one. `/doctor prompt-audit` finds contradictions and stale entries.
+
+--
+
+**Context, not enforcement.** Everything here is weighed, not obeyed. To make something impossible, write a hook (module 7).
+
+---
+
+# `/init` Writes the Discoverable Half
+
+`/init` reads the codebase and drafts a `CLAUDE.md`: build commands, test commands, conventions it can see. If one exists, it suggests improvements instead of overwriting.
+
+--
+
+What it cannot discover, and what is worth adding by hand:
+
+- **why** a convention exists ("the CSV is generated; committing it would make every rebuild a diff")
+- **what not to do** ("never add `.DS_Store` to a per-repo `.gitignore`; the global excludes file covers it")
+- **what "done" means** ("script runs clean, one row per city, bad rows excluded and counted")
+
+--
+
+The drill's target: a `CLAUDE.md` for the practice repo under 40 lines, every line a fact.
+
+---
+name: lessons-library
+
+# The Lessons-Library Pattern
+
+A global `CLAUDE.md` that keeps every lesson from every session passes 200 lines within months.
+
+--
+
+What keeps it under control:
+
+.small[
+```markdown
+# Lessons library: read the matching file BEFORE that kind of task
+
+Playbooks live in ~/.claude/lessons/, one file per area. NOT loaded
+automatically. When a task touches an area below, read that whole file first.
+When you learn a new lesson in one of these areas, add it there, not here.
+
+- latex.md (18): any LaTeX build, bibtex, page-fitting, latexdiff, TikZ.
+- slides-xaringan.md (12): authoring or verifying xaringan decks.
+- git-collab.md (16): stash, cross-checks, shared-doc sync, gh auth, hooks.
+```
+]
+
+--
+
+The writing lesson, separate from the mechanics (module 5): an index line must say **when** to read the file, not just what it contains. "Any LaTeX build" is a trigger; "LaTeX notes" is not.
+
+---
+
+# A Burned Example: Number vs Definition
+
+An instruction read:
+
+> for the 112 cases where control is an empty arm
+
+The empty-arm cases were the other **205**. The number and the definition picked out different sets.
+
+--
+
+The definition is usually the load-bearing intent; the number is the slip.
+
+--
+
+When **writing** a spec: give the definition, let the number be computed.
+
+When **reading** one and the two disagree: surface the contradiction, implement against the definition (per row, not a hardcoded count), confirm before changing anything published. Do not silently pick the number.
+
+---
+name: spec-main
+
+# One Document Is the Spec
+
+Every course in this collection has a `learning-plan.md`. The README, the hub page, each module's `concepts.md` are **derived** from it and expected to agree with it.
+
+--
+
+The scaffolding skill reads the plan first and stops if the requested module is not in it.
+
+--
+
+The practice, independent of the file name:
+
+> One document is the spec. Everything else is derived. A disagreement is a bug in the derived document until proven otherwise.
+
+--
+
+In the drill, `SPEC.md` for the practice repo is written **ahead of the code** on purpose: it names an exclusion rule the script does not implement yet. The README then has to say so in a "Known gaps" section rather than describing the script as if it were the spec.
+
+---
+
+# Briefs: The Only Context the Recipient Has
+
+A subagent, a peer session, a cloud session: each starts with nothing but the brief.
+
+--
+
+What works:
+
+- **Goal and what is ruled out.** "Add the exclusion rule from SPEC.md; the median column is already done."
+- **Pointers, not retyping.** "Read SPEC.md and data/trip_metrics.R."
+- **What to do with the result.** "Commit per chunk, do not push, return a summary as text."
+- **Self-contained.** A restarted peer session has a new name and none of the earlier context.
+
+<a href="#brief-scoping" class="nav-btn">a scoping burn →</a>
+
+---
+
+# What Claude Writes: Three Kinds
+
+**README and concepts.** Derived from the spec. Numbers computed from the source, not typed from memory. "24 CSVs" after the pipeline makes 29 is the commonest stale fact.
+
+--
+
+**Plans and handoff notes.** A `NEXT SESSION` block at the end of a session, written to disk: state, rules, build and verify steps, the file boundary for the next session. A conditional thread ("when a cloud session asks") gets one line or is dropped. Once the user dismisses a thread, it stays out of every later recap.
+
+--
+
+**Findings reports.** A verifier agent's output. Save each to disk as it lands. A subagent asked to write a report file is refused ("return findings as text"), so the main session does the writing.
+
+---
+name: grep-main
+
+# Facts That Survive `grep`
+
+A README audit for a stale count:
+
+```bash
+grep -n "24 CSVs" README.md        # finds nothing...
+```
+
+...because the text says:
+
+```
+the 24
+handoff CSVs
+```
+
+--
+
+Line-based search misses a fact wrapped across lines. Same trap in LaTeX: `555~0123` slips past a space-or-hyphen pattern for a phone number.
+
+--
+
+Two habits:
+
+- **Writing:** one fact, one line, one spelling.
+- **Auditing:** sweep with the bare number (`grep -nE '\b24\b'`) plus a context pass, or read the whole section. And on this machine `grep` is `ugrep`, which has produced silent false negatives: confirm an "absent" with python `'phrase' in open(f).read()` before concluding.
+
+---
+
+# House Style Belongs in the Instruction File
+
+This collection's `CLAUDE.md` carries a prose style for anything user-facing: no em-dashes, short sentences, few colons and semicolons, no opening affirmations, no filler.
+
+--
+
+Why it lives there instead of being re-explained each session:
+
+- it is a **fact about every task**, which is exactly what the file is for
+- it is **checkable**: `grep -c` for the character before a commit, exit code and all
+
+--
+
+```bash
+# zero em-dashes is the GOOD result, and grep -c exits 1 on zero:
+# chain a commit after it and the commit is skipped. Keep them separate.
+perl -CSD -ne 'print "$ARGV:$.: $_" if /\x{2014}/' README.md
+```
+
+---
+
+# Summary
+
+| Document | Written by | Rule |
+|---|---|---|
+| `CLAUDE.md` | you (+ `/init`) | facts, under 200 lines, audited for contradictions |
+| playbook files | you | one per area, index line says *when* to read |
+| spec | you | one source of truth; everything else derived |
+| brief | you | goal, pointers, scoped rules, what to return |
+| README / concepts | Claude | derived from the spec; numbers computed, one per line |
+| handoff note | Claude | on disk, state + rules + verify steps + file boundary |
+| findings | agent, saved by main | to disk as they land |
+
+--
+
+The drill builds all of the "you" rows for the practice repo and audits the first "Claude" row.
+
+---
+class: center, middle, inverse
+
+# Backup Slides
+
+---
+name: brief-scoping
+
+# Backup: A Scoping Burn (2026-09)
+
+.small[
+A brief to a peer session said:
+
+> Don't name any school.
+
+Meant: the school being applied to. Read as: every institution. The peer stripped three universities from a web page, all of them true affiliations the source kept.
+
+The fix is in the writing:
+
+> Don't name X, Y, Z (the target). Other affiliations stay as in the source. Citations of that faculty's published work are fine.
+
+Two more from the same family:
+
+- Before asking a peer to "restore" something, check the diff. One "missing" item had never been on the page; the request was really an addition.
+- From the receiving side: when a relayed rule would delete real content, ask for its exact scope before stripping anything.
+]
+
+<a href="#spec-main" class="nav-btn-br">← back</a>

@@ -1,0 +1,10 @@
+# Rendered-deck caches and R artifacts
+*_cache/
+.Rhistory
+.RData
+.Rproj.user/
+
+# Practice repo lives outside this repo (~/claude-code-practice)
+# Local Claude Code config is machine-specific
+.claude/settings.local.json
+CLAUDE.local.md
