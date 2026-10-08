@@ -88,7 +88,8 @@ class: center, middle, inverse, title-slide
 **Step 1.** Build the practice repo (once, in your terminal):
 
 ```bash
-cd &lt;where you cloned learning-claude-code&gt;
+find ~ -maxdepth 4 -type d -name learning-claude-code -not -path '*/Library/*' 2&gt;/dev/null
+cd /Users/you/Desktop/courses/learning-claude-code   # paste the path the line above printed
 mkdir -p ~/claude-code-practice &amp;&amp; cp -r data ~/claude-code-practice/
 cd ~/claude-code-practice
 git init -q &amp;&amp; git add data/build_data.R data/trip_metrics.R

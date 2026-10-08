@@ -13,7 +13,11 @@ should show, what it must never do, and what `/know` does. Compare with
 the deck's spec slide. Then:
 
 ```bash
-COURSE=~/path/to/learning-claude-code      # the real folder where you cloned this repo
+find ~ -maxdepth 4 -type d -name learning-claude-code -not -path '*/Library/*' 2>/dev/null
+# prints this repo's full path, e.g. /Users/you/Desktop/courses/learning-claude-code
+cd /Users/you/Desktop/courses/learning-claude-code     # paste the line it printed
+COURSE=$(pwd)                                           # $COURSE now holds that path
+ls "$COURSE/module-08/things-you-should-know"          # expect: hooks  types
 cd ~/claude-code-practice
 claude --plugin-dir "$COURSE/module-08/things-you-should-know" plugin list   # Status: loaded?
 claude --plugin-dir "$COURSE/module-08/things-you-should-know"

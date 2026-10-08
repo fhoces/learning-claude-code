@@ -116,36 +116,31 @@ name: run-it
 
 # Run It on Your Machine
 
-**1. Get the files.** They are in this repo:
+**1. Find where this repo is on your machine.** This prints its full path (it takes a few seconds):
 
+```bash
+find ~ -maxdepth 4 -type d -name learning-claude-code -not -path '*/Library/*' 2&gt;/dev/null
 ```
-module-08/things-you-should-know/
-├── .claude-plugin/plugin.json     name, version, description, "types"
-├── types/index.d.ts               the state contract: which values the mod keeps
-├── hooks/hooks.json               {"modules": ["./register.tsx"]}
-├── hooks/register.tsx             the hooks and the band
-└── hooks/register.test.ts         three tests
-```
+
+It prints one line, for example `/Users/you/Desktop/courses/learning-claude-code`. That line is your path.
 
 --
 
-**2. Load it for one session**, from the project you want it to watch. The path must be the real folder where this repo is cloned:
+**2. Save that path and start Claude Code with the mod.** Type these in one terminal window, pasting your line from step 1 into the first:
 
 ```bash
-COURSE=~/path/to/learning-claude-code        # wherever you cloned this repo
-cd ~/claude-code-practice
+cd /Users/you/Desktop/courses/learning-claude-code       # paste the line step 1 printed
+COURSE=$(pwd)                                             # $COURSE now holds that path
+ls "$COURSE/module-08/things-you-should-know"            # expect: hooks  types
+cd ~/claude-code-practice                                 # the project the mod will watch
 claude --plugin-dir "$COURSE/module-08/things-you-should-know"
 ```
 
+`$COURSE` only exists in that window. In a new window, repeat the `cd` and `COURSE=$(pwd)` lines.
+
 --
 
-**3. Check that it loaded.** Inside the session, type:
-
-```
-/plugin
-```
-
-Look for `things-you-should-know` on the **Installed** tab. If it is not there, the path in step 2 was wrong: `/exit` and start again with the right path. A wrong path gives no error, so this check is the only way to know.
+**3. Check that it loaded.** Inside the session, type `/plugin` and look for `things-you-should-know` on the **Installed** tab. If it is not there, the path in step 2 was wrong: `/exit` and start again with the right path. A wrong path gives no error, so this check is the only way to know.
 
 ---
 name: what-you-see

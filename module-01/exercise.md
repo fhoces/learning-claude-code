@@ -7,7 +7,8 @@ Each question ends with what you should see.
 ## Q1. Build the practice repo
 
 ```bash
-cd <where you cloned learning-claude-code>
+find ~ -maxdepth 4 -type d -name learning-claude-code -not -path '*/Library/*' 2>/dev/null
+cd /Users/you/Desktop/courses/learning-claude-code   # paste the path the line above printed
 mkdir -p ~/claude-code-practice && cp -r data ~/claude-code-practice/
 cd ~/claude-code-practice
 git init -q && git add data/build_data.R data/trip_metrics.R

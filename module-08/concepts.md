@@ -32,10 +32,16 @@ stated before its code:
   `/know` prints the same facts as text and brings the band back.
 - Survive a reload: the facts live in `$.state`, not in variables.
 
-Run it from any project with:
+Run it from any project. First find this repo and save its path, in
+the same terminal window you will start Claude Code from:
 
 ```bash
-claude --plugin-dir <learning-claude-code>/module-08/things-you-should-know
+find ~ -maxdepth 4 -type d -name learning-claude-code -not -path '*/Library/*' 2>/dev/null
+# prints e.g. /Users/you/Desktop/courses/learning-claude-code
+cd /Users/you/Desktop/courses/learning-claude-code   # paste the line it printed
+COURSE=$(pwd)
+cd ~/claude-code-practice
+claude --plugin-dir "$COURSE/module-08/things-you-should-know"
 ```
 
 `claude plugin validate` lists its six hooks, the `$` methods it calls
