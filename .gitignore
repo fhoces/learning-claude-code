@@ -8,3 +8,6 @@
 # Local Claude Code config is machine-specific
 .claude/settings.local.json
 CLAUDE.local.md
+
+# Laid by the engine when module-08/trip-guard is loaded; per machine, regenerated on load
+module-08/trip-guard/.claude-plugin/types/

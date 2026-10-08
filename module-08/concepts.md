@@ -30,16 +30,20 @@ claude --plugin-dir <learning-claude-code>/module-08/trip-guard
 
 It does three things, each one hook:
 
-1. **Denies** any `Edit` or `Write` whose path is `data/trips.csv`, with
-   a message pointing at the generator. Claude reads the message as an
-   error result and changes course.
+1. **Denies** any `Edit` or `Write` whose path is `data/trips.csv`, and
+   any Bash command that would rewrite it (`sed -i`, a `>` redirection,
+   `cp`, `rm`, `write.csv`), with a message pointing at the generator.
+   Claude reads the message as an error result and changes course. The
+   first version guarded only the file tools; the first learner to run
+   it got the file changed through Bash. A guard covers every route or
+   it is not a guard.
 2. **Sets the status line** to `failed: <command>` after a Bash call
    that errored, and clears it after one that succeeded.
 3. **Toasts** when a turn took longer than a minute.
 
 `claude plugin validate module-08/trip-guard` lists exactly those three
 hooks and the two `$` methods they call; `claude plugin test
-module-08/trip-guard` runs its three tests against the engine itself.
+module-08/trip-guard` runs its five tests against the engine itself.
 The rest of this file explains what you just ran.
 
 ## What a mod is

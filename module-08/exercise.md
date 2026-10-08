@@ -8,17 +8,28 @@ optional).
 ## Q1. Run the shipped mod
 
 ```bash
+COURSE=~/path/to/learning-claude-code      # the real folder where you cloned this repo
 cd ~/claude-code-practice
-claude --plugin-dir <where you cloned learning-claude-code>/module-08/trip-guard
+claude --plugin-dir "$COURSE/module-08/trip-guard"
 ```
 
-Inside the session, three prompts:
+If the path is wrong the session starts without the mod and nothing
+warns you. Check with `/plugin` before trusting it.
+
+Inside the session, four prompts:
 
 > Change the rating of the first data row in data/trips.csv to 4.
 
 Expected: the edit is refused with the mod's message naming
 `data/build_data.R`. Claude reads the reason and offers to change the
 generator instead.
+
+> Do it with a sed -i command instead.
+
+Expected: refused too, by the Bash half of the guard. The first version
+of this mod only guarded the Edit and Write tools, and the first learner
+to run it got the file changed through Bash. A guard has to cover every
+way the thing can happen.
 
 > Run: ls /nonexistent
 
