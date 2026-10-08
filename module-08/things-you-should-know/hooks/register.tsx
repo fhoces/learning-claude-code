@@ -12,6 +12,9 @@ const claudeMdLines = atom({ plugin: 'things-you-should-know', key: 'claudeMdLin
 const isHidden = atom({ plugin: 'things-you-should-know', key: 'isHidden' } as const, false)
 
 const CLAUDE_MD_BUDGET = 200
+// `git commit`, `git -C <dir> commit`, `git add x && git commit -F -`: any git call whose
+// subcommand is commit, within one shell segment.
+const COMMIT = /\bgit\b[^|;&]*?\scommit(?![\w-])/
 
 function lines(edits: readonly string[], turn: Turn | null, failed: string | null, md: number | null) {
   const out: string[] = []
@@ -64,7 +67,7 @@ export const register: Register = on => {
       await update($, edited, list => (list.includes(e.file_path) ? list : [...list, e.file_path]))
     }
     if (e.tool === 'Bash') {
-      if (ok && /\bgit\s+commit\b/.test(e.command)) await update($, edited, () => [])
+      if (ok && COMMIT.test(e.command)) await update($, edited, () => [])
       await update($, lastFailed, () => (ok ? null : e.command.slice(0, 60)))
     }
     return ran

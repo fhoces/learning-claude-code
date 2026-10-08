@@ -26,6 +26,27 @@ test('counts files edited since the last commit, once each, and resets on git co
   expect(seen.edited).toEqual([])
 })
 
+test('also resets on git -C <dir> commit and on add && commit', async ($, on) => {
+  const seen = watchState(on)
+  on('tool.call', ($, e) => (e.tool === 'Bash' ? bashOk : editOk(String((e as { file_path?: string }).file_path))))
+  await $.tool.call({ tool: 'Write', file_path: '/r/README.md', content: 'x' })
+  await $.tool.call({ tool: 'Bash', command: "git -C /r commit -F - <<'EOF'\nmsg\nEOF" })
+  expect(seen.edited).toEqual([])
+  await $.tool.call({ tool: 'Write', file_path: '/r/README.md', content: 'y' })
+  await $.tool.call({ tool: 'Bash', command: 'git add README.md && git commit -m "x"' })
+  expect(seen.edited).toEqual([])
+})
+
+test('does not reset on git commands that are not commits', async ($, on) => {
+  const seen = watchState(on)
+  on('tool.call', ($, e) => (e.tool === 'Bash' ? bashOk : editOk(String((e as { file_path?: string }).file_path))))
+  await $.tool.call({ tool: 'Write', file_path: '/r/README.md', content: 'x' })
+  await $.tool.call({ tool: 'Bash', command: 'git log --oneline -3' })
+  await $.tool.call({ tool: 'Bash', command: 'git status --short | grep commit' })
+  await $.tool.call({ tool: 'Bash', command: 'git commit-tree abc123 -m x' })
+  expect(seen.edited).toEqual(['/r/README.md'])
+})
+
 test('remembers the last failed command and forgets it after a success', async ($, on) => {
   const seen = watchState(on)
   on('tool.call', ($, e) => ((e as { command?: string }).command?.includes('nonexistent') ? bashFail : bashOk))

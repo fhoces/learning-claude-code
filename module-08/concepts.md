@@ -46,7 +46,7 @@ claude --plugin-dir "$COURSE/module-08/things-you-should-know"
 
 `claude plugin validate` lists its six hooks, the `$` methods it calls
 and the five state keys it reads and writes, checked against the
-contract in `types/index.d.ts`; `claude plugin test` runs its three
+contract in `types/index.d.ts`; `claude plugin test` runs its five
 tests against the engine itself. A second mod, `module-08/trip-guard/`,
 is the guard variant: it refuses edits to the generated CSV through the
 file tools and through Bash. The rest of this file explains what you

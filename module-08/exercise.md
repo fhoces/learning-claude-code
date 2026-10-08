@@ -24,26 +24,31 @@ claude --plugin-dir "$COURSE/module-08/things-you-should-know"
 ```
 
 In the session, `/plugin` should list it on the Installed tab. Then
-four prompts:
+these prompts, one at a time:
 
-> Add a comment line at the top of data/trip_metrics.R.
+> Add a median_fare column to the per-city summary in data/trip_metrics.R.
 
-Expected: after the turn, a band above the prompt: one file edited
-since the last commit, and the last turn's seconds and tool calls.
+> Create a README.md with one sentence describing this repo.
 
-> Run: ls /nonexistent
+> Run: ls data/missing.csv
 
-Expected: a third line, `last failed command: ls /nonexistent`. Then
-`Run: ls data` clears it.
+Expected: after the third, a band above the prompt with three lines:
+`2 files edited since the last commit: trip_metrics.R, README.md`, the
+last turn's seconds and tool calls, and
+`last failed command: ls data/missing.csv`.
 
-> Commit the change.
+> Commit both files.
 
 Expected: the "files edited" line disappears.
 
+> Run: ls data
+
+Expected: the "last failed command" line disappears.
+
 > /know
 
-Expected: the same facts as a transcript line. Press Hide on the band,
-then `/know` again: the band is back.
+Expected: the remaining facts as a transcript line. Press Hide on the
+band, then `/know` again: the band is back.
 
 ## Q2. Check it without running it
 
@@ -55,7 +60,7 @@ claude plugin test module-08/things-you-should-know
 
 Expected from validate: the six hooks, the `$` methods it calls, and
 the five state keys it reads and writes, matched against
-`types/index.d.ts`. Expected from test: 3 pass, 0 fail. Read
+`types/index.d.ts`. Expected from test: 5 pass, 0 fail. Read
 `hooks/register.test.ts`: a test cannot read `$.state`, so it watches
 `state.set` writes with a hook of its own.
 

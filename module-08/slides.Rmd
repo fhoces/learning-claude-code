@@ -145,12 +145,22 @@ name: what-you-see
 
 # What You See
 
-After a couple of turns (an edit, a failed `ls`), the band above the prompt reads:
+In the session, type these three prompts, one at a time:
+
+```
+Add a median_fare column to the per-city summary in data/trip_metrics.R.
+Create a README.md with one sentence describing this repo.
+Run: ls data/missing.csv
+```
+
+--
+
+After the third, the band above the prompt reads:
 
 ```
   2 files edited since the last commit: trip_metrics.R, README.md
-  last turn: 41 s, 6 tool calls
-  last failed command: ls /nonexistent
+  last turn: 4 s, 1 tool call
+  last failed command: ls data/missing.csv
   [ Hide (/know brings it back) ]
 ╭──────────────────────────────────────────────────────────────╮
 │ >                                                            │
@@ -159,18 +169,7 @@ After a couple of turns (an edit, a failed `ls`), the band above the prompt read
 
 --
 
-Ask Claude to commit, and the first line disappears. Run a command that succeeds, and the third one does.
-
---
-
-`/know` prints the same facts as a transcript line. This one is a real headless run (`claude -p "/know"`) in a project whose `CLAUDE.md` is 250 lines:
-
-```
-$ claude -p --plugin-dir "$COURSE/module-08/things-you-should-know" "/know"
-things-you-should-know: CLAUDE.md is 250 lines; the docs suggest under 200
-```
-
-Nothing else to report in a fresh session, so nothing else is printed.
+Then two more: `Commit both files.` removes the first line, and `Run: ls data` removes the third. `/know` prints whatever is left as text. The three lines above are what `/know` printed in a real run of exactly these prompts; your seconds will differ.
 
 ---
 name: check-it
@@ -195,9 +194,11 @@ $ claude plugin validate module-08/things-you-should-know
 ```
 $ claude plugin test module-08/things-you-should-know
 (pass) counts files edited since the last commit, once each, and resets on git commit
+(pass) also resets on git -C <dir> commit and on add && commit
+(pass) does not reset on git commands that are not commits
 (pass) remembers the last failed command and forgets it after a success
 (pass) /know prints the facts as text
- 3 pass   0 fail
+ 5 pass   0 fail
 ```
 
 --
@@ -267,7 +268,7 @@ on('tool.call', async ($, e, next) => {
   if ((e.tool === 'Edit' || e.tool === 'Write') && ok)
     await update($, edited, list => (list.includes(e.file_path) ? list : [...list, e.file_path]))
   if (e.tool === 'Bash') {
-    if (ok && /\bgit\s+commit\b/.test(e.command)) await update($, edited, () => [])
+    if (ok && COMMIT.test(e.command)) await update($, edited, () => [])   // git commit, git -C dir commit, ...
     await update($, lastFailed, () => (ok ? null : e.command.slice(0, 60)))
   }
   return ran
