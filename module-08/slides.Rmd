@@ -151,7 +151,7 @@ cd ~/claude-code-practice
 claude --plugin-dir "$COURSE/module-08/trip-guard"
 ```
 
-`--plugin-dir` loads a plugin from disk for that session only. No install, no copy. If the path is wrong the session starts without the mod and nothing warns you except the first blocked edit going through; check with `/plugin` (the mod is listed as loaded from its folder).
+`--plugin-dir` loads a plugin from disk for that session only. No install, no copy. If the path is wrong the session starts without the mod and nothing warns you. Two checks: `/plugin` lists it on the **Installed** tab, and from the shell `claude --plugin-dir "$COURSE/module-08/trip-guard" plugin list` prints it as `trip-guard@inline` with `Status: ✔ loaded`. After editing the mod's files, `/reload-plugins`.
 
 --
 

@@ -14,7 +14,11 @@ claude --plugin-dir "$COURSE/module-08/trip-guard"
 ```
 
 If the path is wrong the session starts without the mod and nothing
-warns you. Check with `/plugin` before trusting it.
+warns you. Check before trusting it: `/plugin` lists the mod on the
+Installed tab, and from the shell
+`claude --plugin-dir "$COURSE/module-08/trip-guard" plugin list` prints
+it as `trip-guard@inline` with `Status: ✔ loaded`. After editing the mod's files, `/reload-plugins`
+in the session.
 
 Inside the session, four prompts:
 
