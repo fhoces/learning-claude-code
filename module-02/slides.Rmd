@@ -316,6 +316,23 @@ perl -CSD -ne 'print "$ARGV:$.: $_" if /\x{2014}/' README.md
 The drill builds all of the "you" rows for the practice repo and audits the first "Claude" row.
 
 ---
+name: course-map-end
+
+# Course Map
+
+<table>
+<tr><th>#</th><th>Module</th><th>Status</th></tr>
+<tr><td>1</td><td><a href="../module-01/slides.html">Version control as the safety net</a></td><td>✓ done</td></tr>
+<tr><td>2</td><td>Markdown as the interface <i>(just finished)</i></td><td>✓ done</td></tr>
+<tr><td><b>3</b></td><td><b><a href="../module-03/slides.html">Verification plans</a></b></td><td>next</td></tr>
+<tr><td>4</td><td><a href="../module-04/slides.html">Token management</a></td><td>✓ done</td></tr>
+<tr><td>5</td><td><a href="../module-05/slides.html">Global and local memory</a></td><td>✓ done</td></tr>
+<tr><td>6</td><td><a href="../module-06/slides.html">Skills</a></td><td>✓ done</td></tr>
+<tr><td>7</td><td><a href="../module-07/slides.html">Hooks</a></td><td>✓ done</td></tr>
+<tr><td>8</td><td><a href="../module-08/slides.html">Mods</a></td><td>✓ done</td></tr>
+</table>
+
+---
 class: center, middle, inverse
 
 # Backup Slides

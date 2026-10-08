@@ -503,6 +503,23 @@ Someone else types, in a terminal session:
 The drill runs the shipped `things-you-should-know`, checks it, reads it in three parts, breaks it the way validate caught, extends it with one more fact, then runs the guard mod and dry-runs the marketplace file.
 
 ---
+name: course-map-end
+
+# Course Map
+
+<table>
+<tr><th>#</th><th>Module</th><th>Status</th></tr>
+<tr><td>1</td><td><a href="../module-01/slides.html">Version control as the safety net</a></td><td>✓ done</td></tr>
+<tr><td>2</td><td><a href="../module-02/slides.html">Markdown as the interface</a></td><td>✓ done</td></tr>
+<tr><td>3</td><td><a href="../module-03/slides.html">Verification plans</a></td><td>✓ done</td></tr>
+<tr><td>4</td><td><a href="../module-04/slides.html">Token management</a></td><td>✓ done</td></tr>
+<tr><td>5</td><td><a href="../module-05/slides.html">Global and local memory</a></td><td>✓ done</td></tr>
+<tr><td>6</td><td><a href="../module-06/slides.html">Skills</a></td><td>✓ done</td></tr>
+<tr><td>7</td><td><a href="../module-07/slides.html">Hooks</a></td><td>✓ done</td></tr>
+<tr><td>8</td><td>Mods <i>(just finished)</i></td><td>✓ done</td></tr>
+</table>
+
+---
 class: center, middle, inverse
 
 # Backup Slides

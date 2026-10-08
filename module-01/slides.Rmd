@@ -394,6 +394,23 @@ If it keeps happening, closing the duplicate session is the fix.
 The drill does Q1 to Q6 of this table on the practice repo, including breaking and recovering history.
 
 ---
+name: course-map-end
+
+# Course Map
+
+<table>
+<tr><th>#</th><th>Module</th><th>Status</th></tr>
+<tr><td>1</td><td>Version control as the safety net <i>(just finished)</i></td><td>✓ done</td></tr>
+<tr><td><b>2</b></td><td><b><a href="../module-02/slides.html">Markdown as the interface</a></b></td><td>next</td></tr>
+<tr><td>3</td><td><a href="../module-03/slides.html">Verification plans</a></td><td>✓ done</td></tr>
+<tr><td>4</td><td><a href="../module-04/slides.html">Token management</a></td><td>✓ done</td></tr>
+<tr><td>5</td><td><a href="../module-05/slides.html">Global and local memory</a></td><td>✓ done</td></tr>
+<tr><td>6</td><td><a href="../module-06/slides.html">Skills</a></td><td>✓ done</td></tr>
+<tr><td>7</td><td><a href="../module-07/slides.html">Hooks</a></td><td>✓ done</td></tr>
+<tr><td>8</td><td><a href="../module-08/slides.html">Mods</a></td><td>✓ done</td></tr>
+</table>
+
+---
 class: center, middle, inverse
 
 # Backup Slides
