@@ -126,19 +126,22 @@ It prints one line, for example `/Users/you/Desktop/courses/learning-claude-code
 
 --
 
-**2. Save that path and start Claude Code with the mod.** Type these in one terminal window, pasting your line from step 1 into the first:
+**2. Save that path and start Claude Code with the mod loaded.** Type these in one terminal window, pasting your line from step 1 into the first:
 
 ```bash
 cd /Users/you/Desktop/courses/learning-claude-code       # paste the line step 1 printed
 COURSE=$(pwd)                                             # $COURSE now holds that path
 ls "$COURSE/module-08/things-you-should-know"            # expect: hooks  types
 cd ~/claude-code-practice                                 # the project the mod will watch
-claude --plugin-dir "$COURSE/module-08/things-you-should-know"
+claude --plugin-dir "$COURSE/module-08/things-you-should-know"   # starts Claude Code with the mod
 ```
 
-`$COURSE` only exists in that window. In a new window, repeat the `cd` and `COURSE=$(pwd)` lines.
+The last line is where the mod comes in. `--plugin-dir` **loads** it into this one session; it does not **install** it. Nothing is saved to your settings, and the mod is gone when you exit. The install that lasts is on the [Add It to a Session Already Running](#install-running) slide. `$COURSE` exists only in this terminal window.
 
---
+---
+count: false
+
+# Run It on Your Machine (cont.)
 
 **3. Check that it loaded.** Inside the session, type `/plugin` and look for `things-you-should-know` on the **Installed** tab. If it is not there, the path in step 2 was wrong: `/exit` and start again with the right path. A wrong path gives no error, so this check is the only way to know.
 
@@ -182,7 +185,7 @@ name: install-running
 
 --
 
-**1. In the running session, type** this, with your path from slide 4's step 1:
+**1. In the running session, type** this, with your path from step 1 of [Run It on Your Machine](#run-it):
 
 ```
 /plugin install things-you-should-know --marketplace /Users/you/Desktop/courses/learning-claude-code
